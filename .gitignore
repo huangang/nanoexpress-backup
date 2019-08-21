@@ -67,3 +67,4 @@ dist/
 tests/coverage/
 coverage/
 .DS_Store
+package-lock.json
