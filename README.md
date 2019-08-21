@@ -12,9 +12,17 @@
 
 Nano-framework for Node.js powered by uWebSockets.js
 
+Documentation available [here](https://github.com/dalisoft/nanoexpress/blob/master/docs/index.md)
+
+**Are you want faster and stable performance with extra features, see [PRO](https://github.com/dalisoft/nanoexpress/tree/pro) version**
+
 _If you want **Suport** me, please see [Support](#support) section_
 
 _See [**Credits**](#credits) if you want which libraries i've used_
+
+## Warning
+
+This library does not support HTTP2!
 
 ## NOTE
 
@@ -22,10 +30,14 @@ This library reached the `Alpha` status and works good, see `/examples` folder.
 
 This library up to 25% slower than `uWebSockets.js` on normal and complex application because of method polyfilling layer. Basic usage/examples performance are same as `uWebSockets.js`, but not in all case gives you same performance.
 
+**Requires**: Node.js v10 or greater
+
 ## Benchmarks
 
-![Benchmarks](/.github/images/benchmark.png)
-![Memory Usage](/.github/images/memory.png)
+We [available](https://github.com/the-benchmarker/web-frameworks) in web-frameworks!
+
+![Benchmarks](https://github.com/dalisoft/nanoexpress/raw/master/.github/images/benchmark.png)
+![Memory Usage](https://github.com/dalisoft/nanoexpress/raw/master/.github/images/memory.png)
 
 Benchmarked on my macBook Pro 2012 13" (Core i5, 8Gb RAM) performance.
 
@@ -62,6 +74,10 @@ This library makes very thin layer between uWebSockets.js and your code. But, gi
 - TypeScript declaration
 - Tests and CI checked code
 
+## Examples
+
+All examples are lives [here](https://github.com/dalisoft/nanoexpress/tree/master/examples)
+
 ## Built-in Middlewares
 
 Built-in middlewares implemented at layer-level for performance reason and enables automacilly when needed, not always
@@ -69,9 +85,9 @@ Built-in middlewares implemented at layer-level for performance reason and enabl
 - `cookie`
 - `body-parser`
 - `express-ws` (for comparing, uWS has built-in support at core-level)
-- `fast-json-stringify` (for validation)
-- `express-ajv` (for comparing, i did it at layer-level)
-- `express-declarative-routing` (for comparing, i did it at layer-level)
+- `fast-json-stringify` (for serialization)
+- `express-ajv` (for comparing, for validation, this library does it at layer-level)
+- `express-declarative-routing` (for comparing, this library does it at layer-level)
 
 ## In-box Middlewares
 
@@ -96,6 +112,7 @@ app.use(middlewares.passportInitialize()); // or app.use(passportInitialize());
 - `cors` (yes, `express` `cors` middleware)
 - `express-jwt`
 - `express-session`
+- `express-graphql`
 - `passport`
 
 ## Docker Support

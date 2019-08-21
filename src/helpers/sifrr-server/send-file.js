@@ -1,9 +1,12 @@
-import { getMime, stream2Buffer } from './sifrr-server';
 import fs from 'fs';
 import zlib from 'zlib';
 import util from 'util';
 
 const fsStat = util.promisify(fs.stat);
+
+import writeHeaders from './write-headers';
+import { getMime } from './mime';
+import stob from './stream-to-buffer';
 
 const compressions = {
   br: zlib.createBrotliCompress,
@@ -12,42 +15,53 @@ const compressions = {
 };
 const bytes = 'bytes=';
 
-export default async function(
+export default async function sendFile(res, req, path, options) {
+  if (!res.abortHandler) {
+    res.onAborted(() => {
+      if (res.stream) {
+        res.stream.destroy();
+      }
+      res.aborted = true;
+    });
+    res.abortHandler = true;
+  }
+  return await sendFileToRes(
+    res,
+    {
+      'if-modified-since': req.getHeader('if-modified-since'),
+      range: req.getHeader('range'),
+      'accept-encoding': req.getHeader('accept-encoding')
+    },
+    path,
+    options
+  );
+}
+
+async function sendFileToRes(
+  res,
+  reqHeaders,
   path,
   {
     lastModified = true,
+    headers,
     compress = false,
     compressionOptions = {
-      priority: ['br', 'gzip', 'deflate']
+      priority: ['gzip', 'br', 'deflate']
     },
     cache = false
   } = {}
 ) {
-  if (!this.abortHandler) {
-    this.onAborted(() => {
-      if (this.stream) {
-        this.stream.destroy();
-      }
-      this.aborted = true;
-    });
-    this.abortHandler = true;
-  }
-
-  const res = this;
-  const stat = await fsStat(path);
-  const { mtime } = stat;
-  let { size } = stat;
-
+  // eslint-disable-next-line prefer-const
+  let { mtime, size } = await fsStat(path);
   mtime.setMilliseconds(0);
   const mtimeutc = mtime.toUTCString();
 
-  const { headers = {} } = res.__request;
-
+  headers = Object.assign({}, headers);
   // handling last modified
   if (lastModified) {
     // Return 304 if last-modified
-    if (headers['if-modified-since']) {
-      if (new Date(headers['if-modified-since']) >= mtime) {
+    if (reqHeaders['if-modified-since']) {
+      if (new Date(reqHeaders['if-modified-since']) >= mtime) {
         res.writeStatus('304 Not Modified');
         return res.end();
       }
@@ -60,9 +74,9 @@ export default async function(
   let start = 0,
     end = size - 1;
 
-  if (headers.range) {
+  if (reqHeaders.range) {
     compress = false;
-    const parts = headers.range.replace(bytes, '').split('-');
+    const parts = reqHeaders.range.replace(bytes, '').split('-');
     start = parseInt(parts[0], 10);
     end = parts[1] ? parseInt(parts[1], 10) : end;
     headers['accept-ranges'] = 'bytes';
@@ -72,20 +86,19 @@ export default async function(
   }
 
   // for size = 0
-  if (end < 0) {
-    end = 0;
-  }
+  if (end < 0) end = 0;
 
   let readStream = fs.createReadStream(path, { start, end });
-  this.stream = readStream;
+  res.stream = readStream;
+
   // Compression;
   let compressed = false;
   if (compress) {
     const l = compressionOptions.priority.length;
     for (let i = 0; i < l; i++) {
       const type = compressionOptions.priority[i];
-      if (headers['accept-encoding'].indexOf(type) > -1) {
-        compressed = true;
+      if (reqHeaders['accept-encoding'].indexOf(type) > -1) {
+        compressed = type;
         const compressor = compressions[type](compressionOptions);
         readStream.pipe(compressor);
         readStream = compressor;
@@ -95,24 +108,25 @@ export default async function(
     }
   }
 
-  res.writeHeaders(headers);
+  res.onAborted(() => readStream.destroy());
+  writeHeaders(res, headers);
   // check cache
-  if (cache && !compressed) {
+  if (cache) {
     return cache.wrap(
-      `${path}_${mtimeutc}_${start}_${end}`,
+      `${path}_${mtimeutc}_${start}_${end}_${compressed}`,
       (cb) => {
-        stream2Buffer(readStream)
-          .then((b) => cb(null, b.toString('utf-8')))
+        stob(readStream)
+          .then((b) => cb(null, b))
           .catch(cb);
       },
       { ttl: 0 },
-      (err, string) => {
+      (err, buffer) => {
         if (err) {
           res.writeStatus('500 Internal server error');
           res.end();
           throw err;
         }
-        res.end(string);
+        res.end(buffer);
       }
     );
   } else if (compressed) {

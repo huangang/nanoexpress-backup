@@ -1,4 +1,15 @@
-import fastJson from 'fast-json-stringify';
+import isHttpCode from './is-http-code';
+
+let fastJson;
+
+try {
+  fastJson = require('fast-json-stringify');
+} catch (e) {
+  console.error(
+    '[nanoexpress]: `fast-json-stringify` was not found in your dependencies list' +
+      ', please install yourself for this feature working properly'
+  );
+}
 
 const validationMethods = [
   'response',
@@ -31,22 +42,44 @@ const validationSchema = {
 export default (ajv, schema, config) => {
   const validation = [];
   let validationStringify;
+  let responseSchema;
+
   if (schema) {
     validationMethods.forEach((type) => {
       const _schema = schema[type];
       if (typeof _schema === 'object' && _schema) {
         if (type === 'response') {
-          schema[type] = fastJson(_schema);
+          if (typeof fastJson !== 'function') {
+            console.error(
+              '[nanoexpress]: `fast-json-stringify` was not initialized properly'
+            );
+            return;
+          }
+          const isHttpCodes = Object.keys(_schema).every(isHttpCode);
+
+          const newSchema = {};
+          if (isHttpCodes) {
+            for (const code in _schema) {
+              newSchema[code] = fastJson(_schema[code]);
+            }
+          } else {
+            newSchema[type] = fastJson(_schema);
+          }
+
+          responseSchema = newSchema;
         } else {
           if (!ajv) {
             config.setAjv();
             ajv = config.ajv;
+          } else if (typeof config.configureAjv === 'function') {
+            ajv = config.configureAjv(ajv);
           }
-          const validator = ajv.compile(_schema);
-          schema[type] = validator;
-          validation.push({ type, validator });
-          if (!validationStringify) {
-            validationStringify = fastJson(validationSchema);
+          if (ajv) {
+            const validator = ajv.compile(_schema);
+            validation.push({ type, validator });
+            if (!validationStringify) {
+              validationStringify = fastJson(validationSchema);
+            }
           }
         }
       }
@@ -54,6 +87,7 @@ export default (ajv, schema, config) => {
   }
   return {
     validation,
-    validationStringify
+    validationStringify,
+    responseSchema
   };
 };

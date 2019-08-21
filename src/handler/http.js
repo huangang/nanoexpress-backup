@@ -1,26 +1,36 @@
 import { http } from '../wrappers';
-import { prepareValidation, isSimpleHandler } from '../helpers';
+import { isSimpleHandler } from '../helpers';
 
 const bodyDisallowedMethods = ['get', 'options', 'head', 'trace', 'ws'];
-export default (path, fn, config, { schema } = {}, ajv, method) => {
+export default (
+  path,
+  fn,
+  config,
+  { schema } = {},
+  ajv,
+  method,
+  validationMap
+) => {
   const isSimpleRequest = isSimpleHandler(fn);
 
   if (isSimpleRequest.simple) {
     return isSimpleRequest.handler;
   }
   // For easier aliasing
-  const { validation, validationStringify } = prepareValidation(
-    ajv,
-    schema,
-    config
-  );
+  const { validation, validationStringify, responseSchema } = validationMap;
 
   const bodyCall = bodyDisallowedMethods.indexOf(method) === -1;
+  const methodUpperCase = method !== 'any' && method.toUpperCase();
 
   return async (res, req) => {
     // For future usage
     req.rawPath = path;
-    req.method = method;
+    req.method = methodUpperCase || req.getMethod();
+
+    const request =
+      bodyCall && res.onData
+        ? await http.request(req, res, bodyCall, schema)
+        : http.request(req, res, false, schema);
 
     if (validationStringify) {
       let errors;
@@ -48,18 +58,26 @@ export default (path, fn, config, { schema } = {}, ajv, method) => {
 
       if (errors && !res.aborted) {
         if (config._validationErrorHandler) {
-          return config._validationErrorHandler(errors, req, res);
+          const validationHandlerResult = config._validationErrorHandler(
+            errors,
+            req,
+            res
+          );
+
+          if (validationHandlerResult && validationHandlerResult.errors) {
+            errors = validationHandlerResult;
+          } else {
+            return config._validationErrorHandler(errors, req, res);
+          }
         }
         return res.end(validationStringify(errors));
       }
     }
+    if (responseSchema) {
+      res.schema = responseSchema;
+    }
 
-    const request =
-      bodyCall && res.onData
-        ? await http.request(req, res, bodyCall, schema)
-        : http.request(req, res, false, schema);
-
-    const response = http.response(res, req, config, schema && schema.response);
+    const response = http.response(res, req, config);
 
     if (
       !fn.async ||
@@ -71,8 +89,8 @@ export default (path, fn, config, { schema } = {}, ajv, method) => {
     } else if (!bodyCall && !res.abortHandler) {
       // For async function requires onAborted handler
       res.onAborted(() => {
-        if (res.readStream) {
-          res.readStream.destroy();
+        if (res.stream) {
+          res.stream.destroy();
         }
         res.aborted = true;
       });
@@ -85,7 +103,7 @@ export default (path, fn, config, { schema } = {}, ajv, method) => {
 
     const result = await fn(request, response, config);
 
-    if (res.aborted) {
+    if (res.aborted || res.stream) {
       return undefined;
     }
 
@@ -101,17 +119,14 @@ export default (path, fn, config, { schema } = {}, ajv, method) => {
             : 'The route you visited does not returned response'
         }"}`
       );
-    } else if (!result.stream && method !== 'options') {
-      if (res.statusCode) {
-        res.writeStatus(res.statusCode);
-      }
-
-      if (typeof result === 'object') {
-        res.writeHeader('Content-Type', 'application/json');
-
+    } else if (method !== 'options') {
+      if (result === null || result === undefined) {
+        res.writeHeader('Content-Type', 'text/json');
         return res.end(
-          res.schema ? res.schema(result) : JSON.stringify(result)
+          '{"status":"error","message":"Result response is not valid"}'
         );
+      } else if (typeof result === 'object') {
+        return res.json(result);
       }
 
       res.end(result);

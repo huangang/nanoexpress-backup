@@ -14,49 +14,49 @@ export default (fns) => {
   const schema = fns.find((fn) => fn.schema);
   const asyncToSync = fns.find((fn) => fn.asyncToSync !== undefined);
 
-  let next = false;
-  let error = { message: 'Inside middleware `next` does not called' };
-
-  const isNext = () => next;
-  const isError = () => error;
-
-  const nextHandler = (err, done = true) => {
-    if (err) {
-      error = err;
-      next = false;
-    } else {
-      error = null;
-      next = done;
-    }
-  };
-
   const prepared = fns
     .map((fn, index) => {
       let result;
       if (!fn || typeof fn === 'object') {
         return null;
       }
-      if (fn.then || fn.constructor.name === 'AsyncFunction') {
-        result = fn;
-        result.async = true;
-      } else if (
-        index === fns.length - 1 &&
-        fn.toString().indexOf('next)') === -1
-      ) {
-        result = fn;
-        result.async = false;
-      } else {
-        result = (req, res, config, prevValue) =>
-          fn(req, res, nextHandler, config, prevValue);
-        result.async = false;
-      }
-
-      const { simple, handler } = isSimpleHandler(result, false);
+      const { simple, handler } = isSimpleHandler(fn, false);
 
       if (simple) {
         handler.simple = simple;
         handler.async = false;
+        handler.type = 'simple';
         return handler;
+      } else if (fn.then || fn.constructor.name === 'AsyncFunction') {
+        result = fn;
+        result.async = true;
+        result.type = 'sync';
+      } else if (
+        index === fns.length - 1 &&
+        fn.toString().indexOf('next)') === -1 &&
+        fn.toString().indexOf('async') === -1
+      ) {
+        result = fn;
+        result.async = false;
+        result.type = 'route';
+      } else {
+        result = (req, res, config, prevValue) =>
+          new Promise((resolve) =>
+            fn(
+              req,
+              res,
+              (error, done) => {
+                if (error) {
+                  return resolve({ error });
+                }
+                resolve(done);
+              },
+              config,
+              prevValue
+            )
+          );
+        result.async = true;
+        result.type = 'express';
       }
 
       result.simple = false;
@@ -69,8 +69,6 @@ export default (fns) => {
 
   return {
     prepared,
-    isNext,
-    isError,
     empty: prepared.length === 0,
     schema,
     route,

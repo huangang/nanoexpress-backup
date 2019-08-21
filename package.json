@@ -1,20 +1,20 @@
 {
   "name": "nanoexpress",
-  "version": "0.8.8",
+  "version": "0.12.18",
   "description": "Nano-framework for Node.js powered by uWebSockets.js",
   "main": "build/nanoexpress.js",
   "module": "src/nanoexpress.js",
   "typings": "nanoexpress.d.ts",
   "scripts": {
-    "dev": "rollup -c -w",
-    "watch": "nodemon build/server.js",
-    "watch-dev": "NODE_ENV=development rollup -c -w",
     "build": "rollup -c",
-    "lint": "eslint ./src",
-    "test": "jest --config jest.config.js",
     "coverage": "npm run test --coverage",
     "coveralls": "npm run coverage && cat ./tests/coverage/lcov.info | coveralls",
-    "prepublishOnly": "npm run lint && npm run test && npm run build"
+    "dev": "rollup -c -w",
+    "lint": "eslint ./src",
+    "prepublishOnly": "npm run lint && npm run build",
+    "test": "jest --config jest.config.js",
+    "watch": "nodemon build/server.js",
+    "watch-dev": "NODE_ENV=development rollup -c -w"
   },
   "repository": {
     "type": "git",
@@ -36,37 +36,27 @@
   },
   "homepage": "https://github.com/dalisoft/nanoexpress#readme",
   "dependencies": {
-    "@dalisoft/events": "0.0.10",
-    "@sifrr/server": "0.0.5",
-    "ajv": "^6.10.0",
-    "cookie": "^0.4.0",
-    "fast-json-stringify": "^1.15.3",
+    "@dalisoft/events": "^0.0.x",
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v15.11.0"
   },
   "devDependencies": {
     "@babel/core": "^7.4.5",
     "@babel/preset-env": "^7.4.5",
-    "ava": "^2.0.0",
-    "axios": "^0.19.0",
-    "coveralls": "^3.0.4",
-    "eslint": "^6.0.0",
-    "husky": "^2.4.1",
+    "coveralls": "^3.0.6",
+    "eslint": "^6.0.1",
+    "husky": "^3.0.3",
     "jest": "^24.8.0",
-    "lint-staged": "^8.2.1",
-    "nodemon": "^1.19.1",
+    "lint-staged": "^9.0.0",
     "prettier": "^1.17.1",
-    "rollup": "^1.16.2",
-    "rollup-plugin-babel": "^4.3.3",
+    "rollup": "^1.19.4",
     "rollup-plugin-json": "^4.0.0",
-    "rollup-plugin-node-resolve": "^5.0.4",
+    "rollup-plugin-node-resolve": "^5.2.0",
     "rollup-plugin-run": "^1.1.0"
   },
-  "optionalDependencies": {
-    "cors": "^2.8.5",
-    "express-fileupload": "^1.1.4",
-    "express-jwt": "^5.3.1",
-    "express-session": "^1.16.1",
+  "peerDependencies": {
+    "cookie": "^0.x",
+    "fast-json-stringify": "^1.x",
     "passport": "^0.4.0",
-    "passport-local": "^1.0.0"
+    "ajv": "^6.x"
   }
 }

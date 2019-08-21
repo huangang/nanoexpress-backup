@@ -1,13 +1,26 @@
 import uWS from 'uWebSockets.js';
-import Ajv from 'ajv';
 
 import fs from 'fs';
 import { resolve } from 'path';
+import util from 'util';
 
 import { getMime, sendFile } from './helpers/sifrr-server';
 
 import { http, ws } from './middlewares';
 import { routeMapper } from './helpers';
+
+const readFile = util.promisify(fs.readFile);
+
+let Ajv;
+
+try {
+  Ajv = require('ajv');
+} catch (e) {
+  console.error(
+    '[nanoexpress]: `Ajv` was not found in your dependencies list' +
+      ', please install yourself for this feature working properly'
+  );
+}
 
 const nanoexpress = (options = {}) => {
   const time = Date.now(); // For better managing start-time / lags
@@ -40,14 +53,21 @@ const nanoexpress = (options = {}) => {
   };
 
   config.https = !!options.https;
+  config.configureAjv = options.configureAjv;
 
   config.setAjv = () => {
+    if (typeof Ajv !== 'function') {
+      console.error('[nanoexpress]: `Ajv` was not initialized properly');
+      return;
+    }
     ajv = new Ajv(options.ajv);
     if (options.configureAjv) {
       ajv = options.configureAjv(ajv);
     }
     config.ajv = ajv;
   };
+
+  config.swagger = options.swagger;
 
   const _app = {
     config: {
@@ -77,6 +97,17 @@ const nanoexpress = (options = {}) => {
         if (port === undefined) {
           console.log('[Server]: PORT is required');
           return undefined;
+        }
+        if (middlewares && middlewares.length > 0 && !middlewares.called) {
+          _app.any('/*', ...middlewares);
+          middlewares.called = true;
+        }
+        for (const path in pathMiddlewares) {
+          const middleware = pathMiddlewares[path];
+          if (middleware && middleware.length > 0 && !middleware.called) {
+            _app.any(path, ...middleware);
+            middleware.called = true;
+          }
         }
         port = Number(port);
         app.listen(port, host, (token) => {
@@ -111,7 +142,8 @@ const nanoexpress = (options = {}) => {
       if (_app._instance) {
         config.host = null;
         config.port = null;
-        app.us_listen_socket_close(_app._instance);
+        uWS.us_listen_socket_close(_app._instance);
+        _app._instance = null;
         console.log('[Server]: stopped successfully');
         return true;
       } else {
@@ -158,31 +190,54 @@ const nanoexpress = (options = {}) => {
       return _app;
     },
     ws: (path, options, fn) => {
-      app.ws(path, options && options.isRaw ? fn : ws(path, options, fn));
+      app.ws(
+        path,
+        options && options.isRaw
+          ? (ws, req) => fn(req, ws)
+          : ws(path, options, fn, config, ajv)
+      );
       return _app;
     },
-    static: (
+    static: function staticRoute(
       route,
       path,
       { index = 'index.html', addPrettyUrl = true, streamConfig } = {}
-    ) => {
+    ) {
+      if (path === undefined) {
+        path = route;
+        route = '/';
+      } else if (!route.endsWith('/')) {
+        route += '/';
+      }
+
       const staticFilesPath = fs.readdirSync(path);
 
       for (const fileName of staticFilesPath) {
+        const pathNormalisedFileName = resolve(path, fileName);
+
+        const lstatInfo = fs.lstatSync(pathNormalisedFileName);
+
+        if (lstatInfo && lstatInfo.isDirectory()) {
+          staticRoute(route + fileName, pathNormalisedFileName, {
+            index,
+            addPrettyUrl,
+            streamConfig
+          });
+          continue;
+        }
+
         const isStreamableResource = getMime(fileName);
 
-        const pathNormalisedFileName = resolve(path, fileName);
         const routeNormalised = route + fileName;
 
-        const handler = (res, req) => {
+        const handler = async (res, req) => {
           if (res.__streaming || res.__called) {
             return;
           }
           if (isStreamableResource) {
-            sendFile(res, req, pathNormalisedFileName, streamConfig);
-            res.__streaming = true;
+            await sendFile(res, req, pathNormalisedFileName, streamConfig);
           } else {
-            const sendFile = fs.readFileSync(pathNormalisedFileName, 'utf-8');
+            const sendFile = await readFile(pathNormalisedFileName, 'utf-8');
             res.end(sendFile);
             res.__called = true;
           }
@@ -193,26 +248,42 @@ const nanoexpress = (options = {}) => {
 
         app.get(routeNormalised, handler);
       }
+      return _app;
     }
   };
 
   httpMethods.forEach((method) => {
     _app[method] = (path, ...fns) => {
+      let isPrefix;
+      let isDirect;
       if (fns.length > 0) {
         const isRaw = fns.find((fn) => fn.isRaw === true);
+        isPrefix = fns.find((fn) => fn.isPrefix);
+        isDirect = fns.find((fn) => fn.direct);
 
         if (isRaw) {
           const fn = fns.pop();
-          return app[method](path, (res, req) => fn(req, res));
+          app[method](
+            isPrefix ? isPrefix + path : path,
+            isDirect ? fn : (res, req) => fn(req, res)
+          );
+          return _app;
         }
       }
+      const pathMiddleware = pathMiddlewares[path];
+      if (pathMiddleware && pathMiddleware.length > 0) {
+        pathMiddleware.called = true;
+      }
+      if (middlewares && middlewares.length > 0) {
+        middlewares.called = true;
+      }
       const handler = http(
-        path,
-        middlewares.concat(pathMiddlewares[path] || []).concat(fns),
+        isPrefix ? isPrefix + path : path,
+        middlewares.concat(pathMiddleware || []).concat(fns),
         config,
         ajv,
         method,
-        app
+        _app
       );
       app[method](
         typeof path === 'string' ? path : '/*',

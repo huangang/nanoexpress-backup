@@ -6,28 +6,32 @@ function getIPBuffer() {
 
 export default (req, res, bodyCall, schema) => {
   req.path = req.getUrl();
+  req.url = req.path;
   req.method = req.method || req.getMethod();
 
   // Alias for Express-module
+  // TODO: make this normalized
   req.url = req.path;
+  req.originalUrl = req.url;
+  req.baseUrl = '';
 
   req.__response = res;
   req.getIPBuffer = getIPBuffer;
 
   req.headers =
-    schema && schema.headers !== false
+    !schema || schema.headers !== false
       ? headers(req, req.headers, schema && schema.headers)
       : req.headers;
   req.cookies =
-    schema && schema.cookies !== false && req.headers
+    !schema || schema.cookies !== false
       ? cookies(req, req.cookies, schema && schema.cookies)
       : req.cookies;
   req.params =
-    schema && schema.params !== false
+    !schema || schema.params !== false
       ? params(req, req.params, schema && schema.params)
       : req.params;
   req.query =
-    schema && schema.query !== false
+    !schema || schema.query !== false
       ? queries(req, req.query, schema && schema.query)
       : req.query;
 

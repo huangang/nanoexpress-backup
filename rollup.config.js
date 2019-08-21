@@ -1,15 +1,26 @@
 import resolve from 'rollup-plugin-node-resolve';
-import run from 'rollup-plugin-run';
-import babel from 'rollup-plugin-babel';
-import json from 'rollup-plugin-json';
 
 import pkg from './package.json';
 
-const dev = process.env.NODE_ENV === 'development';
-const watch = process.env.ROLLUP_WATCH;
-
 const dependencies = Object.keys(pkg.dependencies);
 
+const plugins = [
+  resolve({
+    preferBuiltins: true,
+    mainFields: ['module', 'main'],
+    extensions: ['.mjs', '.js', '.json'],
+    exclude: 'node_modules/**'
+  })
+];
+const external = dependencies.concat([
+  'fs',
+  'path',
+  'querystring',
+  'http',
+  'zlib',
+  'stream',
+  'util'
+]);
 export default {
   input: './src/nanoexpress.js',
   output: {
@@ -17,27 +28,6 @@ export default {
     file: './build/nanoexpress.js',
     esModule: false
   },
-  external: dependencies.concat([
-    'fs',
-    'path',
-    'querystring',
-    'http',
-    'zlib',
-    'stream'
-  ]),
-  plugins: [
-    json(),
-    resolve({
-      mainFields: ['module', 'main'],
-      extensions: ['.mjs', '.js', '.json'],
-      exclude: 'node_modules/**'
-    }),
-    !dev &&
-      !watch &&
-      babel({
-        babelrc: true,
-        exclude: 'node_modules/**'
-      }),
-    dev && watch && run()
-  ]
+  external,
+  plugins
 };
