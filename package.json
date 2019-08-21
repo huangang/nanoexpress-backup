@@ -6,15 +6,18 @@
   "module": "src/nanoexpress.js",
   "typings": "nanoexpress.d.ts",
   "scripts": {
+    "dev": "rollup -c -w",
+    "watch": "nodemon build/server.js",
+    "watch-dev": "NODE_ENV=development rollup -c -w",
     "build": "rollup -c",
+    "lint": "eslint ./src",
+    "test": "jest --config jest.config.js",
     "coverage": "npm run test --coverage",
     "coveralls": "npm run coverage && cat ./tests/coverage/lcov.info | coveralls",
-    "dev": "rollup -c -w",
-    "lint": "eslint ./src",
-    "prepublishOnly": "npm run lint && npm run build",
-    "test": "jest --config jest.config.js",
-    "watch": "nodemon build/server.js",
-    "watch-dev": "NODE_ENV=development rollup -c -w"
+    "prepublishOnly": "npm run lint && npm run build"
+  },
+  "engines": {
+    "node": ">=10.x"
   },
   "repository": {
     "type": "git",
