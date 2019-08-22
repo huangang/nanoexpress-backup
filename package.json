@@ -1,6 +1,6 @@
 {
   "name": "nanoexpress",
-  "version": "0.12.18",
+  "version": "0.13.0",
   "description": "Nano-framework for Node.js powered by uWebSockets.js",
   "main": "build/nanoexpress.js",
   "module": "src/nanoexpress.js",
@@ -10,7 +10,7 @@
     "watch": "nodemon build/server.js",
     "watch-dev": "NODE_ENV=development rollup -c -w",
     "build": "rollup -c",
-    "lint": "eslint ./src",
+    "lint": "eslint ./src --fix",
     "test": "jest --config jest.config.js",
     "coverage": "npm run test --coverage",
     "coveralls": "npm run coverage && cat ./tests/coverage/lcov.info | coveralls",

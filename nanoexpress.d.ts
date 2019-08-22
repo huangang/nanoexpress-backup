@@ -206,10 +206,12 @@ declare namespace nanoexpress {
       ) => any
     ): nanoexpressApp;
     register(
-      appModuleRegisterCallback: (app: nanoexpressApp) => any
+      appModuleRegisterCallback: (app: nanoexpressApp, options: any, next: Function) => any,
+      options: any
     ): nanoexpressApp;
     define(prefix: string, routes?: AppRoutes): nanoexpressApp;
     config: AppConfig;
+    decorate(name: string, decoration: any, dependencies?: Array<string>): nanoexpressApp
   }
 
   export interface nanoexpressApp
