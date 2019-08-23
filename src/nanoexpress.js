@@ -70,6 +70,7 @@ const nanoexpress = (options = {}) => {
 
   config.swagger = options.swagger;
 
+  let _prefix = '';
   const _app = {
     config: {
       set: (key, value) => {
@@ -165,6 +166,7 @@ const nanoexpress = (options = {}) => {
       return _app;
     },
     register: (fn, options = {}) => {
+      options.prefix && (_prefix = options.prefix);
       fn(_app, options, () => {});
       return _app;
     },
@@ -256,6 +258,7 @@ const nanoexpress = (options = {}) => {
 
   httpMethods.forEach((method) => {
     _app[method] = (path, ...fns) => {
+      _prefix && (path = _prefix + path);
       let isPrefix;
       let isDirect;
       if (fns.length > 0) {
