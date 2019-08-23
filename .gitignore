@@ -61,7 +61,7 @@ typings/
 .next
 
 # build files
-build/
+# build/
 tmp/
 dist/
 tests/coverage/
