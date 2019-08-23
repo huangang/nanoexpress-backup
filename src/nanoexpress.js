@@ -166,7 +166,7 @@ const nanoexpress = (options = {}) => {
       return _app;
     },
     register: (fn, options = {}) => {
-      options.prefix && (_prefix = options.prefix);
+      options.prefix ? (_prefix = options.prefix) : (_prefix = '');
       fn(_app, options, () => {});
       return _app;
     },
