@@ -20,4 +20,5 @@ HttpResponse.json = HttpResponse.send;
 // for easy and clean code
 HttpResponse.sendFile = sendFile;
 
+HttpResponse.code = HttpResponse.status;
 export default HttpResponse;

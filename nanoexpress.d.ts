@@ -66,6 +66,7 @@ declare namespace nanoexpress {
   }
   export interface HttpResponse extends HttpResponseBasic {
     status(code: number): HttpResponse;
+    code(code: number): HttpResponse;
     setHeader(key: string, value: string | number): HttpResponse;
     hasHeader(key: string): HttpResponse;
     removeHeader(key: string): HttpResponse;
