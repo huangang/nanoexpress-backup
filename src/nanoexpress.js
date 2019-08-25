@@ -40,6 +40,7 @@ const nanoexpress = (options = {}) => {
     'put',
     'patch',
     'del',
+    'delete',
     'any',
     'head',
     'options',
@@ -256,6 +257,7 @@ const nanoexpress = (options = {}) => {
     decorate: decorateNanoexpress
   };
 
+  app.delete = app.del;
   httpMethods.forEach((method) => {
     _app[method] = (path, ...fns) => {
       _prefix && (path = _prefix + path);

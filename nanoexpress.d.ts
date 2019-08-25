@@ -179,6 +179,7 @@ declare namespace nanoexpress {
     put(path: string, ...fns: Middleware[]): nanoexpressApp;
     patch(path: string, ...fns: Middleware[]): nanoexpressApp;
     del(path: string, ...fns: Middleware[]): nanoexpressApp;
+    delete(path: string, ...fns: Middleware[]): nanoexpressApp;
     options(path: string, ...fns: Middleware[]): nanoexpressApp;
     head(path: string, ...fns: Middleware[]): nanoexpressApp;
     trace(path: string, ...fns: Middleware[]): nanoexpressApp;

@@ -2103,7 +2103,7 @@ function createError(code, message, statusCode = 500, Base = Error) {
   return codes[code];
 }
 
-const { FST_ERR_DEC_ALREADY_PRESENT, FST_ERR_DEC_MISSING_DEPENDENCY  } = codes;
+const { FST_ERR_DEC_ALREADY_PRESENT, FST_ERR_DEC_MISSING_DEPENDENCY } = codes;
 function decorateNanoexpress(name, fn, dependencies) {
   decorate(this, name, fn, dependencies);
   return this;
@@ -2178,6 +2178,7 @@ const nanoexpress = (options = {}) => {
     'put',
     'patch',
     'del',
+    'delete',
     'any',
     'head',
     'options',
@@ -2394,6 +2395,7 @@ const nanoexpress = (options = {}) => {
     decorate: decorateNanoexpress
   };
 
+  app.delete = app.del;
   httpMethods.forEach((method) => {
     _app[method] = (path, ...fns) => {
       _prefix && (path = _prefix + path);

@@ -2,7 +2,7 @@ const nanoexpress = require('..');
 
 const app = nanoexpress();
 
-app.get('/',
+app.delete('/',
   {
     schema: {
       headers: false,
