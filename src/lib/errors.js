@@ -14,14 +14,14 @@ createError(
 );
 
 function createError(code, message, statusCode = 500, Base = Error) {
-  if (!code) throw new Error('Fastify error code must not be empty');
-  if (!message) throw new Error('Fastify error message must not be empty');
+  if (!code) throw new Error('Nanoexpress error code must not be empty');
+  if (!message) throw new Error('Nanoexpress error message must not be empty');
 
   code = code.toUpperCase();
 
-  function FastifyError(a, b, c) {
-    Error.captureStackTrace(this, FastifyError);
-    this.name = `FastifyError [${code}]`;
+  function NanoexpressError(a, b, c) {
+    Error.captureStackTrace(this, NanoexpressError);
+    this.name = `NanoexpressError [${code}]`;
     this.code = code;
 
     // more performant than spread (...) operator
@@ -38,11 +38,11 @@ function createError(code, message, statusCode = 500, Base = Error) {
     this.message = `${this.code}: ${this.message}`;
     this.statusCode = statusCode || undefined;
   }
-  FastifyError.prototype[Symbol.toStringTag] = 'Error';
+  NanoexpressError.prototype[Symbol.toStringTag] = 'Error';
 
-  inherits(FastifyError, Base);
+  inherits(NanoexpressError, Base);
 
-  codes[code] = FastifyError;
+  codes[code] = NanoexpressError;
 
   return codes[code];
 }

@@ -2070,14 +2070,14 @@ createError(
 );
 
 function createError(code, message, statusCode = 500, Base = Error) {
-  if (!code) throw new Error('Fastify error code must not be empty');
-  if (!message) throw new Error('Fastify error message must not be empty');
+  if (!code) throw new Error('Nanoexpress error code must not be empty');
+  if (!message) throw new Error('Nanoexpress error message must not be empty');
 
   code = code.toUpperCase();
 
-  function FastifyError(a, b, c) {
-    Error.captureStackTrace(this, FastifyError);
-    this.name = `FastifyError [${code}]`;
+  function NanoexpressError(a, b, c) {
+    Error.captureStackTrace(this, NanoexpressError);
+    this.name = `NanoexpressError [${code}]`;
     this.code = code;
 
     // more performant than spread (...) operator
@@ -2094,16 +2094,17 @@ function createError(code, message, statusCode = 500, Base = Error) {
     this.message = `${this.code}: ${this.message}`;
     this.statusCode = statusCode || undefined;
   }
-  FastifyError.prototype[Symbol.toStringTag] = 'Error';
+  NanoexpressError.prototype[Symbol.toStringTag] = 'Error';
 
-  util.inherits(FastifyError, Base);
+  util.inherits(NanoexpressError, Base);
 
-  codes[code] = FastifyError;
+  codes[code] = NanoexpressError;
 
   return codes[code];
 }
 
-function decorateFastify(name, fn, dependencies) {
+const { FST_ERR_DEC_ALREADY_PRESENT, FST_ERR_DEC_MISSING_DEPENDENCY  } = codes;
+function decorateNanoexpress(name, fn, dependencies) {
   decorate(this, name, fn, dependencies);
   return this;
 }
@@ -2111,7 +2112,7 @@ function decorateFastify(name, fn, dependencies) {
 function decorate(instance, name, fn, dependencies) {
   // eslint-disable-next-line no-prototype-builtins
   if (instance.hasOwnProperty(name)) {
-    throw new codes.FST_ERR_DEC_ALREADY_PRESENT(name);
+    throw new FST_ERR_DEC_ALREADY_PRESENT(name);
   }
 
   if (dependencies) {
@@ -2134,7 +2135,7 @@ function decorate(instance, name, fn, dependencies) {
 function checkDependencies(instance, deps) {
   for (var i = 0; i < deps.length; i++) {
     if (!checkExistence(instance, deps[i])) {
-      throw new codes.FST_ERR_DEC_MISSING_DEPENDENCY(deps[i]);
+      throw new FST_ERR_DEC_MISSING_DEPENDENCY(deps[i]);
     }
   }
 }
@@ -2390,7 +2391,7 @@ const nanoexpress = (options = {}) => {
       }
       return _app;
     },
-    decorate: decorateFastify
+    decorate: decorateNanoexpress
   };
 
   httpMethods.forEach((method) => {

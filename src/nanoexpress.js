@@ -8,7 +8,7 @@ import { getMime, sendFile } from './helpers/sifrr-server';
 
 import { http, ws } from './middlewares';
 import { routeMapper } from './helpers';
-import { decorateFastify } from './lib/decorate';
+import { decorateNanoexpress } from './lib/decorate';
 
 const readFile = util.promisify(fs.readFile);
 
@@ -253,7 +253,7 @@ const nanoexpress = (options = {}) => {
       }
       return _app;
     },
-    decorate: decorateFastify
+    decorate: decorateNanoexpress
   };
 
   httpMethods.forEach((method) => {

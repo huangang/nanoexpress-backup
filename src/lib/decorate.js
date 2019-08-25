@@ -1,6 +1,6 @@
 import { codes } from './errors';
-
-function decorateFastify(name, fn, dependencies) {
+const { FST_ERR_DEC_ALREADY_PRESENT, FST_ERR_DEC_MISSING_DEPENDENCY } = codes;
+function decorateNanoexpress(name, fn, dependencies) {
   decorate(this, name, fn, dependencies);
   return this;
 }
@@ -8,7 +8,7 @@ function decorateFastify(name, fn, dependencies) {
 function decorate(instance, name, fn, dependencies) {
   // eslint-disable-next-line no-prototype-builtins
   if (instance.hasOwnProperty(name)) {
-    throw new codes.FST_ERR_DEC_ALREADY_PRESENT(name);
+    throw new FST_ERR_DEC_ALREADY_PRESENT(name);
   }
 
   if (dependencies) {
@@ -31,7 +31,7 @@ function decorate(instance, name, fn, dependencies) {
 function checkDependencies(instance, deps) {
   for (var i = 0; i < deps.length; i++) {
     if (!checkExistence(instance, deps[i])) {
-      throw new codes.FST_ERR_DEC_MISSING_DEPENDENCY(deps[i]);
+      throw new FST_ERR_DEC_MISSING_DEPENDENCY(deps[i]);
     }
   }
 }
@@ -44,4 +44,4 @@ function checkExistence(instance, name) {
   return instance in this;
 }
 
-export { decorate, decorateFastify, checkExistence, checkDependencies };
+export { decorate, decorateNanoexpress, checkExistence, checkDependencies };
