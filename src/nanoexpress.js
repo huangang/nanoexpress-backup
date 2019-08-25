@@ -9,7 +9,7 @@ import { getMime, sendFile } from './helpers/sifrr-server';
 import { http, ws } from './middlewares';
 import { routeMapper } from './helpers';
 import { decorateNanoexpress } from './lib/decorate';
-
+import { kHooks } from './lib/symbols';
 const readFile = util.promisify(fs.readFile);
 
 let Ajv;
@@ -254,7 +254,32 @@ const nanoexpress = (options = {}) => {
       }
       return _app;
     },
-    decorate: decorateNanoexpress
+    decorate: decorateNanoexpress,
+    [kHooks]: {
+      onRequest: [],
+      preParsing: [],
+      preValidation: [],
+      preHandler: [],
+      preSerialization: [],
+      onSend: [],
+      onResponse: []
+    },
+    addHook: (name, fn) => {
+      switch (name) {
+      case 'onRequest':
+      case 'preParsing':
+      case 'preValidation':
+      case 'preHandler':
+      case 'preSerialization':
+      case 'onSend':
+      case 'onResponse':
+        _app[kHooks][name].push(fn);
+        break;
+      default:
+        break;
+      }
+      return _app;
+    }
   };
 
   app.delete = app.del;

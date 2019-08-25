@@ -1,5 +1,7 @@
 import { http } from '../wrappers';
 import { isSimpleHandler } from '../helpers';
+import { hookRunner, onSendHookRunner, hookIterator } from '../lib/hooks';
+import { kHooks } from '../lib/symbols';
 
 const bodyDisallowedMethods = ['get', 'options', 'head', 'trace', 'ws'];
 export default (
@@ -9,7 +11,8 @@ export default (
   { schema } = {},
   ajv,
   method,
-  validationMap
+  validationMap,
+  app
 ) => {
   const isSimpleRequest = isSimpleHandler(fn);
 
@@ -21,17 +24,23 @@ export default (
 
   const bodyCall = bodyDisallowedMethods.indexOf(method) === -1;
   const methodUpperCase = method !== 'any' && method.toUpperCase();
-
   return async (res, req) => {
+    const hooks = app[kHooks];
+    // @TODO run onRequest
+    hookRunner(hooks.onRequest, hookIterator, req, res, () => {});
     // For future usage
     req.rawPath = path;
     req.method = methodUpperCase || req.getMethod();
 
+    // @TODO run preParsing
+    hookRunner(hooks.preParsing, hookIterator, req, res, () => {});
     const request =
       bodyCall && res.onData
         ? await http.request(req, res, bodyCall, schema)
         : http.request(req, res, false, schema);
 
+    // @TODO run preValidation
+    hookRunner(hooks.preValidation, hookIterator, req, res, () => {});
     if (validationStringify) {
       let errors;
       for (let i = 0, len = validation.length; i < len; i++) {
@@ -79,6 +88,8 @@ export default (
 
     const response = http.response(res, req, config);
 
+    // @TODO run preHandler
+    hookRunner(hooks.preHandler, hookIterator, req, res, () => {});
     if (
       !fn.async ||
       fn.simple ||
@@ -129,7 +140,11 @@ export default (
         return res.json(result);
       }
 
+      // @TODO run onSend
+      hookRunner(hooks.onSend, onSendHookRunner, req, res, () => {});
       res.end(result);
+      hookRunner(hooks.onResponse, hookIterator, req, res, () => {});
+      // @TODO run onResponse
     }
   };
 };

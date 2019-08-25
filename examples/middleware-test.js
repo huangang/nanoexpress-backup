@@ -17,6 +17,7 @@ nanoexpress()
   .use('/', two)
   // .get('/favicon.ico', async (req) => {}) // eslint-disable-line no-unused-vars
   .get('/', (req, res) => res.send('Hello'))
+  .post('/', (req, res) => res.send('World'))
   .get('/user/:id', (req, res) => {
     res.end(`User: ${req.params.id}`);
   })

@@ -13,6 +13,22 @@ createError(
   'The decorator is missing dependency \'%s\'.'
 );
 
+/**
+ * hooks
+ */
+createError(
+  'FST_ERR_HOOK_INVALID_TYPE',
+  'The hook name must be a string',
+  500,
+  TypeError
+);
+createError(
+  'FST_ERR_HOOK_INVALID_HANDLER',
+  'The hook callback must be a function',
+  500,
+  TypeError
+);
+
 function createError(code, message, statusCode = 500, Base = Error) {
   if (!code) throw new Error('Nanoexpress error code must not be empty');
   if (!message) throw new Error('Nanoexpress error message must not be empty');

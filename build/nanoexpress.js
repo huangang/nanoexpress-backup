@@ -1724,6 +1724,128 @@ function swaggerDocsGenerator(
   }
 }
 
+const codes = {};
+
+/**
+ * decorate
+ */
+createError(
+  'FST_ERR_DEC_ALREADY_PRESENT',
+  'The decorator \'%s\' has already been added!'
+);
+createError(
+  'FST_ERR_DEC_MISSING_DEPENDENCY',
+  'The decorator is missing dependency \'%s\'.'
+);
+
+/**
+ * hooks
+*/
+createError('FST_ERR_HOOK_INVALID_TYPE', 'The hook name must be a string', 500, TypeError);
+createError('FST_ERR_HOOK_INVALID_HANDLER', 'The hook callback must be a function', 500, TypeError);
+
+function createError(code, message, statusCode = 500, Base = Error) {
+  if (!code) throw new Error('Nanoexpress error code must not be empty');
+  if (!message) throw new Error('Nanoexpress error message must not be empty');
+
+  code = code.toUpperCase();
+
+  function NanoexpressError(a, b, c) {
+    Error.captureStackTrace(this, NanoexpressError);
+    this.name = `NanoexpressError [${code}]`;
+    this.code = code;
+
+    // more performant than spread (...) operator
+    if (a && b && c) {
+      this.message = util.format(message, a, b, c);
+    } else if (a && b) {
+      this.message = util.format(message, a, b);
+    } else if (a) {
+      this.message = util.format(message, a);
+    } else {
+      this.message = message;
+    }
+
+    this.message = `${this.code}: ${this.message}`;
+    this.statusCode = statusCode || undefined;
+  }
+  NanoexpressError.prototype[Symbol.toStringTag] = 'Error';
+
+  util.inherits(NanoexpressError, Base);
+
+  codes[code] = NanoexpressError;
+
+  return codes[code];
+}
+
+function hookRunner (functions, runner, req, res, cb) {
+  var i = 0;
+
+  function next (err) {
+    if (err || i === functions.length) {
+      cb(err, req, res);
+      return;
+    }
+
+    const result = runner(functions[i++], req, res, next);
+    if (result && typeof result.then === 'function') {
+      result.then(handleResolve, handleReject);
+    }
+  }
+
+  function handleResolve () {
+    next();
+  }
+
+  function handleReject (err) {
+    cb(err, req, res);
+  }
+
+  next();
+}
+
+function onSendHookRunner (functions, req, res, payload, cb) {
+  var i = 0;
+
+  function next (err, newPayload) {
+    if (err) {
+      cb(err, req, res, payload);
+      return;
+    }
+
+    if (newPayload !== undefined) {
+      payload = newPayload;
+    }
+
+    if (i === functions.length) {
+      cb(null, req, res, payload);
+      return;
+    }
+
+    const result = functions[i++](req, res, payload, next);
+    if (result && typeof result.then === 'function') {
+      result.then(handleResolve, handleReject);
+    }
+  }
+
+  function handleResolve (newPayload) {
+    next(null, newPayload);
+  }
+
+  function handleReject (err) {
+    cb(err, req, res, payload);
+  }
+
+  next();
+}
+
+function hookIterator (fn, req, res, next) {
+  if (res.sent === true) return undefined;
+  return fn(req, res, next);
+}
+
+const kHooks = Symbol('nanoexpress.hooks');
+
 const bodyDisallowedMethods = ['get', 'options', 'head', 'trace', 'ws'];
 var http = (
   path,
@@ -1732,7 +1854,8 @@ var http = (
   { schema } = {},
   ajv,
   method,
-  validationMap
+  validationMap,
+  app
 ) => {
   const isSimpleRequest = isSimpleHandler(fn);
 
@@ -1744,17 +1867,23 @@ var http = (
 
   const bodyCall = bodyDisallowedMethods.indexOf(method) === -1;
   const methodUpperCase = method !== 'any' && method.toUpperCase();
-
   return async (res, req) => {
+    const hooks = app[kHooks];
+    // @TODO run onRequest
+    hookRunner(hooks.onRequest, hookIterator, req, res, () => {});
     // For future usage
     req.rawPath = path;
     req.method = methodUpperCase || req.getMethod();
 
+    // @TODO run preParsing
+    hookRunner(hooks.preParsing, hookIterator, req, res, () => {});
     const request$1 =
       bodyCall && res.onData
         ? await request(req, res, bodyCall, schema)
         : request(req, res, false, schema);
 
+    // @TODO run preValidation
+    hookRunner(hooks.preValidation, hookIterator, req, res, () => {});
     if (validationStringify) {
       let errors;
       for (let i = 0, len = validation.length; i < len; i++) {
@@ -1802,6 +1931,8 @@ var http = (
 
     const response$1 = response(res, req, config);
 
+    // @TODO run preHandler
+    hookRunner(hooks.preHandler, hookIterator, req, res, () => {});
     if (
       !fn.async ||
       fn.simple ||
@@ -1852,7 +1983,11 @@ var http = (
         return res.json(result);
       }
 
+      // @TODO run onSend
+      hookRunner(hooks.onSend, onSendHookRunner, req, res, () => {});
       res.end(result);
+      hookRunner(hooks.onResponse, hookIterator, req, res, () => {});
+      // @TODO run onResponse
     }
   };
 };
@@ -2052,56 +2187,8 @@ var http$1 = (path = '/*', fns, config, ajv, method, app) => {
   handler.simple = route.simple;
   handler.asyncToSync = asyncToSync;
 
-  return http(path, handler, config, schema, ajv, method, validationMap);
+  return http(path, handler, config, schema, ajv, method, validationMap, app);
 };
-
-const codes = {};
-
-/**
- * decorate
- */
-createError(
-  'FST_ERR_DEC_ALREADY_PRESENT',
-  'The decorator \'%s\' has already been added!'
-);
-createError(
-  'FST_ERR_DEC_MISSING_DEPENDENCY',
-  'The decorator is missing dependency \'%s\'.'
-);
-
-function createError(code, message, statusCode = 500, Base = Error) {
-  if (!code) throw new Error('Nanoexpress error code must not be empty');
-  if (!message) throw new Error('Nanoexpress error message must not be empty');
-
-  code = code.toUpperCase();
-
-  function NanoexpressError(a, b, c) {
-    Error.captureStackTrace(this, NanoexpressError);
-    this.name = `NanoexpressError [${code}]`;
-    this.code = code;
-
-    // more performant than spread (...) operator
-    if (a && b && c) {
-      this.message = util.format(message, a, b, c);
-    } else if (a && b) {
-      this.message = util.format(message, a, b);
-    } else if (a) {
-      this.message = util.format(message, a);
-    } else {
-      this.message = message;
-    }
-
-    this.message = `${this.code}: ${this.message}`;
-    this.statusCode = statusCode || undefined;
-  }
-  NanoexpressError.prototype[Symbol.toStringTag] = 'Error';
-
-  util.inherits(NanoexpressError, Base);
-
-  codes[code] = NanoexpressError;
-
-  return codes[code];
-}
 
 const { FST_ERR_DEC_ALREADY_PRESENT, FST_ERR_DEC_MISSING_DEPENDENCY } = codes;
 function decorateNanoexpress(name, fn, dependencies) {
@@ -2392,7 +2479,32 @@ const nanoexpress = (options = {}) => {
       }
       return _app;
     },
-    decorate: decorateNanoexpress
+    decorate: decorateNanoexpress,
+    [kHooks]: {
+      onRequest: [],
+      preParsing: [],
+      preValidation: [],
+      preHandler: [],
+      preSerialization: [],
+      onSend: [],
+      onResponse: []
+    },
+    addHook: (name, fn) => {
+      switch (name) {
+      case 'onRequest':
+      case 'preParsing':
+      case 'preValidation':
+      case 'preHandler':
+      case 'preSerialization':
+      case 'onSend':
+      case 'onResponse':
+        _app[kHooks][name].push(fn);
+        break;
+      default:
+        break;
+      }
+      return _app;
+    }
   };
 
   app.delete = app.del;
