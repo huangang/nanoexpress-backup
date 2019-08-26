@@ -1,9 +1,5 @@
 import { codes } from './errors';
 const { FST_ERR_DEC_ALREADY_PRESENT, FST_ERR_DEC_MISSING_DEPENDENCY } = codes;
-function decorateNanoexpress(name, fn, dependencies) {
-  decorate(this, name, fn, dependencies);
-  return this;
-}
 
 function decorate(instance, name, fn, dependencies) {
   // eslint-disable-next-line no-prototype-builtins
@@ -44,4 +40,4 @@ function checkExistence(instance, name) {
   return instance in this;
 }
 
-export { decorate, decorateNanoexpress, checkExistence, checkDependencies };
+export { decorate, checkExistence, checkDependencies };

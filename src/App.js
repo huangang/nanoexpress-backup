@@ -2,7 +2,7 @@ import uWS from 'uWebSockets.js';
 
 import wsHandler from './handler/ws';
 import { httpMethods } from './helpers';
-import { decorateNanoexpress } from './lib/decorate';
+import { decorate } from './lib/decorate';
 import { buildHooks, Hooks } from './lib/hooks';
 let _prefix = '';
 export default class App {
@@ -51,7 +51,6 @@ export default class App {
 
     this._routeCalled = false;
     this._optionsCalled = false;
-    this.decorate = decorateNanoexpress;
     return this;
   }
   activateDocs() {
@@ -166,7 +165,7 @@ export default class App {
   }
   register(fn, options = {}) {
     options.prefix ? (_prefix = options.prefix) : (_prefix = '');
-    fn(this._app, options, () => {});
+    fn(this, options, () => {});
   }
   addHook(name, fn) {
     if (name === 'onClose') {
@@ -180,6 +179,10 @@ export default class App {
     } else {
       this._hooks.add(name, fn.bind(this));
     }
+    return this;
+  }
+  decorate(name, fn) {
+    decorate(this, name, fn);
     return this;
   }
 }

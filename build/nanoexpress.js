@@ -1892,10 +1892,6 @@ var wsHandler = (path, options = {}, fn, ajv) => {
 };
 
 const { FST_ERR_DEC_ALREADY_PRESENT, FST_ERR_DEC_MISSING_DEPENDENCY } = codes;
-function decorateNanoexpress(name, fn, dependencies) {
-  decorate(this, name, fn, dependencies);
-  return this;
-}
 
 function decorate(instance, name, fn, dependencies) {
   // eslint-disable-next-line no-prototype-builtins
@@ -1983,7 +1979,6 @@ class App {
 
     this._routeCalled = false;
     this._optionsCalled = false;
-    this.decorate = decorateNanoexpress;
     return this;
   }
   activateDocs() {
@@ -2098,7 +2093,7 @@ class App {
   }
   register(fn, options = {}) {
     options.prefix ? (_prefix = options.prefix) : (_prefix = '');
-    fn(this._app, options, () => {});
+    fn(this, options, () => {});
   }
   addHook(name, fn) {
     if (name === 'onClose') {
@@ -2112,6 +2107,10 @@ class App {
     } else {
       this._hooks.add(name, fn.bind(this));
     }
+    return this;
+  }
+  decorate(name, fn) {
+    decorate(this, name, fn);
     return this;
   }
 }
