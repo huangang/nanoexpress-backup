@@ -2,8 +2,12 @@ import { onSendHookRunner } from '../../../lib/hooks';
 
 export default function send(result) {
   const { __hooks, __request } = this;
+  // eslint-disable-next-line max-len
+  const preSerializations = __hooks.preSerialization.concat(
+    (__hooks[__request.url] && __hooks[__request.url].preSerialization) || []
+  );
   onSendHookRunner(
-    __hooks.preSerialization,
+    preSerializations,
     __request,
     __request.__response,
     result,

@@ -27,6 +27,12 @@ nanoexpress()
     console.log('in get');
     res.send('Hello');
   })
+  .get('/2', {
+    schema: {},
+    handler: (req, res) => {
+      res.send('222');
+    }
+  })
   .post('/', (req, res) => {
     console.log('in post');
     console.log(req.body);

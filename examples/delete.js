@@ -19,7 +19,7 @@ app.delete('/',
     }
   },
   async (req, res) => {
-    return { hello: 'world' }
+    return { hello: 'world' };
   }
 );
 

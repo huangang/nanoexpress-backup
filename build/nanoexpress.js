@@ -786,8 +786,10 @@ function modifyEnd() {
 
 function send(result) {
   const { __hooks, __request } = this;
+  // eslint-disable-next-line max-len
+  const preSerializations = __hooks.preSerialization.concat(__hooks[__request.url] && __hooks[__request.url].preSerialization || []);
   onSendHookRunner(
-    __hooks.preSerialization,
+    preSerializations,
     __request,
     __request.__response,
     result,
@@ -1439,7 +1441,9 @@ class Route {
   }
   _prepareMethod(method, path, _hooks, ...middlewares) {
     const { _config, _baseUrl, _middlewares, _module, _rootLevel, _ajv } = this;
-
+    const getHooks = (name) => {
+      return _hooks[name].concat(_hooks[path] && _hooks[path][name] || []);
+    };
     const fetchMethod = method === 'any';
     const fetchUrl =
       path === '/*' || path.indexOf(':') !== -1 || (_module && !_rootLevel);
@@ -1471,6 +1475,24 @@ class Route {
         middleware &&
         typeof middleware.schema === 'object'
     );
+
+    if (typeof schema === 'object') {
+      schema.handler && typeof schema.handler === 'function' && middlewares.push(schema.handler);
+      // add path hook
+      const addHooks = [ 'onRequest', 'preParsing', 'preValidation', 'preHandler', 'preSerialization'];
+      const addPathHooks = () => {
+        for (const name of addHooks) {
+          if (schema[name]) {
+            if (schema[name].constructor === Array){
+              _hooks[path][name] = schema[name];
+            } else {
+              _hooks[path][name] = [schema[name]];
+            }
+          }
+        }
+      };
+      addPathHooks();
+    }
 
     middlewares = middlewares.filter(
       (middleware) => typeof middleware === 'function'
@@ -1506,7 +1528,7 @@ class Route {
       const _oldRouteFunction = routeFunction;
       routeFunction = (req, res) => {
         // run _hooks preHandler
-        hookRunner(_hooks.preHandler, hookIterator, req, res, () => {});
+        hookRunner(getHooks('preHandlers'), hookIterator, req, res, () => {});
         return _oldRouteFunction(req, res)
           .then((data) => {
             if (!isAborted && data && data !== res) {
@@ -1642,7 +1664,7 @@ class Route {
         }
       }
       // run _hooks onRequest
-      hookRunner(_hooks.onRequest, hookIterator, req, res, () => {});
+      hookRunner(getHooks('onRequest'), hookIterator, req, res, () => {});
 
       if (middlewares && middlewares.length > 0) {
         for (let i = 0, len = middlewares.length, middleware; i < len; i++) {
@@ -1672,7 +1694,7 @@ class Route {
         }
 
         // run _hooks preParsing
-        hookRunner(_hooks.preParsing, hookIterator, req, res, () => {});
+        hookRunner(getHooks('preParsing'), hookIterator, req, res, () => {});
 
         if (
           !isRaw &&
@@ -1691,7 +1713,7 @@ class Route {
           }
 
           // run _hooks preParsing
-          hookRunner(_hooks.preValidation, hookIterator, req, res, () => {});
+          hookRunner(getHooks('preValidation'), hookIterator, req, res, () => {});
           if (
             isAborted ||
             (!isRaw &&
