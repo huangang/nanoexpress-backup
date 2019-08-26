@@ -214,6 +214,7 @@ declare namespace nanoexpress {
     define(prefix: string, routes?: AppRoutes): nanoexpressApp;
     config: AppConfig;
     decorate(name: string, decoration: any, dependencies?: Array<string>): nanoexpressApp
+    addHook(name: string, fn: Function): nanoexpressApp
   }
 
   export interface nanoexpressApp

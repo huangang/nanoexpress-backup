@@ -1,39 +1,40 @@
-export default function send(result) {
-  /* If we were aborted, you cannot respond */
-  if (this.aborted) {
-    console.error('[Server]: Error, Response was aborted before responsing');
-    return undefined;
-  }
-  if (this._headers && this.writeHead && !this._headWritten && !this.aborted) {
-    this.writeHead(this.statusCode || 200, this._headers);
-    this._headWritten = true;
-  }
-  if ((this.statusCode || this._headers) && !this._modifiedEnd) {
-    this.modifyEnd();
-  }
+import { onSendHookRunner } from '../../../lib/hooks';
 
-  if (result === null || result === undefined) {
-    this.end('');
+export default function send(result) {
+  const { __hooks, __request } = this;
+  onSendHookRunner(
+    __hooks.preSerialization,
+    __request,
+    __request.__response,
+    result,
+    () => {}
+  );
+  if (!result) {
+    result = '';
   } else if (typeof result === 'object') {
     this.setHeader('Content-Type', 'application/json');
-    if (this.schema) {
-      const { schema } = this;
 
-      const schemaWithCode = schema[this.rawStatusCode];
+    const { fastJson } = this;
 
-      if (schemaWithCode) {
-        result = schemaWithCode(result);
+    if (fastJson) {
+      const fastJsonWithCode = fastJson[this.rawStatusCode];
+
+      if (fastJsonWithCode) {
+        result = fastJsonWithCode(result);
       } else {
-        result = schema(result);
+        result = fastJson(result);
       }
     } else {
       result = JSON.stringify(result);
     }
-
-    this.end(result);
-  } else {
-    this.end(result);
   }
+  onSendHookRunner(
+    __hooks.onSend,
+    __request,
+    __request.__response,
+    result,
+    () => {}
+  );
 
-  return this;
+  return this.end(result);
 }
