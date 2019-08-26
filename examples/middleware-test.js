@@ -18,7 +18,7 @@ nanoexpress()
     // console.log(req.query);
     // console.log(req.body);
     console.log('onRequest');
-    next();
+    next(new Error('error'));
   })
   .use(one)
   .use('/', two)

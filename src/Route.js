@@ -1,6 +1,6 @@
 import { headers, cookies, queries, params, body } from './normalizers';
 import { HttpResponse } from './proto';
-import { hookRunner, hookIterator } from './lib/hooks';
+import { hookRunner, hookIterator, hookCallback } from './lib/hooks';
 
 import {
   prepareSwaggerDocs,
@@ -167,7 +167,13 @@ export default class Route {
       const _oldRouteFunction = routeFunction;
       routeFunction = (req, res) => {
         // run _hooks preHandler
-        hookRunner(getHooks('preHandlers'), hookIterator, req, res, () => {});
+        hookRunner(
+          getHooks('preHandlers'),
+          hookIterator,
+          req,
+          res,
+          hookCallback
+        );
         return _oldRouteFunction(req, res)
           .then((data) => {
             if (!isAborted && data && data !== res) {
@@ -313,7 +319,7 @@ export default class Route {
         }
       }
       // run _hooks onRequest
-      hookRunner(getHooks('onRequest'), hookIterator, req, res, () => {});
+      hookRunner(getHooks('onRequest'), hookIterator, req, res, hookCallback);
 
       if (middlewares && middlewares.length > 0) {
         for (let i = 0, len = middlewares.length, middleware; i < len; i++) {
@@ -343,7 +349,13 @@ export default class Route {
         }
 
         // run _hooks preParsing
-        hookRunner(getHooks('preParsing'), hookIterator, req, res, () => {});
+        hookRunner(
+          getHooks('preParsing'),
+          hookIterator,
+          req,
+          res,
+          hookCallback
+        );
 
         if (
           !isRaw &&
@@ -367,7 +379,7 @@ export default class Route {
             hookIterator,
             req,
             res,
-            () => {}
+            hookCallback
           );
           if (
             isAborted ||

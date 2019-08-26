@@ -66,7 +66,6 @@ declare namespace nanoexpress {
   }
   export interface HttpResponse extends HttpResponseBasic {
     status(code: number): HttpResponse;
-    code(code: number): HttpResponse;
     setHeader(key: string, value: string | number): HttpResponse;
     hasHeader(key: string): HttpResponse;
     removeHeader(key: string): HttpResponse;
@@ -120,7 +119,14 @@ declare namespace nanoexpress {
     cookies: boolean | SchemaValue;
     query: boolean | SchemaValue;
     params: boolean | SchemaValue;
-    body: string | SchemaValue;
+    body: string | boolean | SchemaValue;
+    response: boolean | SchemaValue;
+  }
+  export interface WebSocketOptions {
+    compression?: number;
+    maxPayloadLength?: number;
+    idleTimeout?: number;
+    schema?: Schema;
   }
   interface MiddlewareOption {
     schema?: Schema;
@@ -142,8 +148,7 @@ declare namespace nanoexpress {
 
   export interface AppConfig {
     config: {
-      set(key: string, value: any): void;
-      get(key: string): any;
+      [key: string]: any;
     };
   }
 
@@ -175,15 +180,15 @@ declare namespace nanoexpress {
     ): nanoexpressApp;
     use(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
     get(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
-    post(path: string, schema: Schema, fn: HttpRoute): nanoexpressApp;	    post(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
-    put(path: string, schema: Schema, fn: HttpRoute): nanoexpressApp;	    put(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
-    patch(path: string, schema: Schema, fn: HttpRoute): nanoexpressApp;	    patch(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
-    del(path: string, schema: Schema, fn: HttpRoute): nanoexpressApp;	    del(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
-    options(path: string, schema: Schema, fn: HttpRoute): nanoexpressApp;	    options(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
-    head(path: string, schema: Schema, fn: HttpRoute): nanoexpressApp;	    head(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
-    trace(path: string, schema: Schema, fn: HttpRoute): nanoexpressApp;	    trace(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
-    any(path: string, schema: Schema, fn: HttpRoute): nanoexpressApp;	    any(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
-    ws(path: string, options: WebSocketOptions, fn: WsRoute): nanoexpressApp;	    ws(path: string, options: WebSocketOptions, fn?: WsRoute): nanoexpressApp;
+    post(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
+    put(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
+    patch(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
+    del(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
+    options(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
+    head(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
+    trace(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
+    any(path: string | Middleware, ...fns: Middleware[]): nanoexpressApp;
+    ws(path: string, options: WebSocketOptions, fn?: WsRoute): nanoexpressApp;
     listen(port: number, host?: string): Promise<nanoexpressApp>;
     close(): boolean;
     setErrorHandler(
@@ -195,9 +200,9 @@ declare namespace nanoexpress {
     ): nanoexpressApp;
     setNotFoundHandler(
       notFoundHandlerCallback: (
-        res: HttpRequestBasic,
-        req: HttpRequestBasic
-      ) => HttpRequestBasic
+        req: HttpRequest,
+        res: HttpResponse
+      ) => HttpResponse
     ): nanoexpressApp;
     setValidationErrorHandler(
       validationErrorHandlerCallback: (
@@ -206,10 +211,7 @@ declare namespace nanoexpress {
         res: HttpResponse
       ) => any
     ): nanoexpressApp;
-    define(prefix: string, routes?: AppRoutes): nanoexpressApp;
     config: AppConfig;
-    decorate(name: string, decoration: any, dependencies?: Array<string>): nanoexpressApp
-    addHook(name: string, fn: Function): nanoexpressApp
   }
 
   export interface nanoexpressApp

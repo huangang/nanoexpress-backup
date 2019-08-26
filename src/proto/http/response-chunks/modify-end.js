@@ -44,6 +44,7 @@ export default function modifyEnd() {
     };
 
     this._modifiedEnd = true;
+    this.sent = true;
   }
   return this;
 }

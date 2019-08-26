@@ -39,5 +39,6 @@ export default function send(result) {
     () => {}
   );
 
+  this.sent = true;
   return this.end(result);
 }

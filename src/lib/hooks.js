@@ -113,4 +113,19 @@ function hookIterator(fn, req, res, next) {
   return fn(req, res, next);
 }
 
-export { Hooks, buildHooks, hookRunner, onSendHookRunner, hookIterator };
+function hookCallback(err, req, res) {
+  if (res.sent === true) return;
+  if (err != null) {
+    res.send(err);
+    return;
+  }
+}
+
+export {
+  Hooks,
+  buildHooks,
+  hookRunner,
+  onSendHookRunner,
+  hookIterator,
+  hookCallback
+};
