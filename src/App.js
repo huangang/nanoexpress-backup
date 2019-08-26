@@ -3,6 +3,7 @@ import uWS from 'uWebSockets.js';
 import wsHandler from './handler/ws';
 import { httpMethods } from './helpers';
 import { decorateNanoexpress } from './lib/decorate';
+import { buildHooks, Hooks } from './lib/hooks';
 let _prefix = '';
 export default class App {
   get config() {
@@ -34,14 +35,11 @@ export default class App {
     this._config = config;
     this._app = app;
     this._route = route;
-    this._hooks = {
-      onRequest: [],
-      preParsing: [],
-      preValidation: [],
-      preHandler: [],
-      preSerialization: [],
-      onSend: [],
-      onResponse: []
+    this._hooks = new Hooks();
+    this._hooks = buildHooks(this._hooks);
+    this._globalHooks = {
+      onRoute: [],
+      onRegister: []
     };
     this.time = Date.now();
 
@@ -171,18 +169,16 @@ export default class App {
     fn(this._app, options, () => {});
   }
   addHook(name, fn) {
-    switch (name) {
-    case 'onRequest':
-    case 'preParsing':
-    case 'preValidation':
-    case 'preHandler':
-    case 'preSerialization':
-    case 'onSend':
-    case 'onResponse':
-      this._hooks[name].push(fn);
-      break;
-    default:
-      break;
+    if (name === 'onClose') {
+      this._hooks.validate(name, fn);
+    } else if (name === 'onRoute') {
+      this._hooks.validate(name, fn);
+      this._globalHooks.onRoute.push(fn);
+    } else if (name === 'onRegister') {
+      this._hooks.validate(name, fn);
+      this._globalHooks.onRegister.push(fn);
+    } else {
+      this._hooks.add(name, fn.bind(this));
     }
     return this;
   }

@@ -616,6 +616,60 @@ function createError(code, message, statusCode = 500, Base = Error) {
   return codes[code];
 }
 
+const supportedHooks = [
+  'onRequest',
+  'preParsing',
+  'preValidation',
+  'preSerialization',
+  'preHandler',
+  'onResponse',
+  'onSend',
+  'onError',
+  // executed at start/close time
+  'onRoute',
+  'onRegister',
+  'onClose'
+];
+const { FST_ERR_HOOK_INVALID_TYPE, FST_ERR_HOOK_INVALID_HANDLER } = codes;
+
+function Hooks() {
+  this.onRequest = [];
+  this.preParsing = [];
+  this.preValidation = [];
+  this.preSerialization = [];
+  this.preHandler = [];
+  this.onResponse = [];
+  this.onSend = [];
+  this.onError = [];
+  return this;
+}
+
+Hooks.prototype.validate = function(hook, fn) {
+  if (typeof hook !== 'string') throw new FST_ERR_HOOK_INVALID_TYPE();
+  if (typeof fn !== 'function') throw new FST_ERR_HOOK_INVALID_HANDLER();
+  if (supportedHooks.indexOf(hook) === -1) {
+    throw new Error(`${hook} hook not supported!`);
+  }
+};
+
+Hooks.prototype.add = function(hook, fn) {
+  this.validate(hook, fn);
+  this[hook].push(fn);
+};
+
+function buildHooks(h) {
+  const hooks = new Hooks();
+  hooks.onRequest = h.onRequest.slice();
+  hooks.preParsing = h.preParsing.slice();
+  hooks.preValidation = h.preValidation.slice();
+  hooks.preSerialization = h.preSerialization.slice();
+  hooks.preHandler = h.preHandler.slice();
+  hooks.onSend = h.onSend.slice();
+  hooks.onResponse = h.onResponse.slice();
+  hooks.onError = h.onError.slice();
+  return hooks;
+}
+
 function hookRunner(functions, runner, req, res, cb) {
   var i = 0;
 
@@ -713,7 +767,13 @@ function modifyEnd() {
       }
       const { __hooks, __request } = this;
 
-      hookRunner(__hooks.onResponse, hookIterator, __request.request, __request.__response, () => {});
+      hookRunner(
+        __hooks.onResponse,
+        hookIterator,
+        __request.request,
+        __request.__response,
+        () => {}
+      );
       return encoding
         ? _oldEnd.call(this, chunk, encoding)
         : _oldEnd.call(this, chunk);
@@ -726,7 +786,13 @@ function modifyEnd() {
 
 function send(result) {
   const { __hooks, __request } = this;
-  onSendHookRunner(__hooks.preSerialization, __request, __request.__response, result, () => {});
+  onSendHookRunner(
+    __hooks.preSerialization,
+    __request,
+    __request.__response,
+    result,
+    () => {}
+  );
   if (!result) {
     result = '';
   } else if (typeof result === 'object') {
@@ -746,7 +812,13 @@ function send(result) {
       result = JSON.stringify(result);
     }
   }
-  onSendHookRunner(__hooks.onSend, __request, __request.__response, result, () => {});
+  onSendHookRunner(
+    __hooks.onSend,
+    __request,
+    __request.__response,
+    result,
+    () => {}
+  );
 
   return this.end(result);
 }
@@ -1376,7 +1448,10 @@ class Route {
     let _schema = null;
     let isAborted = false;
     const bodyAllowedMethod =
-      method === 'post' || method === 'put' || method === 'del' || method === 'delete';
+      method === 'post' ||
+      method === 'put' ||
+      method === 'del' ||
+      method === 'delete';
     let responseSchema;
     const isRaw = middlewares.find(
       (middleware) =>
@@ -1855,14 +1930,11 @@ class App {
     this._config = config;
     this._app = app;
     this._route = route;
-    this._hooks = {
-      onRequest: [],
-      preParsing: [],
-      preValidation: [],
-      preHandler: [],
-      preSerialization: [],
-      onSend: [],
-      onResponse: []
+    this._hooks = new Hooks();
+    this._hooks = buildHooks(this._hooks);
+    this._globalHooks = {
+      onRoute: [],
+      onRegister: []
     };
     this.time = Date.now();
 
@@ -1987,23 +2059,21 @@ class App {
       return false;
     }
   }
-  register (fn, options = {}) {
+  register(fn, options = {}) {
     options.prefix ? (_prefix = options.prefix) : (_prefix = '');
     fn(this._app, options, () => {});
   }
   addHook(name, fn) {
-    switch (name) {
-    case 'onRequest':
-    case 'preParsing':
-    case 'preValidation':
-    case 'preHandler':
-    case 'preSerialization':
-    case 'onSend':
-    case 'onResponse':
-      this._hooks[name].push(fn);
-      break;
-    default:
-      break;
+    if (name === 'onClose') {
+      this._hooks.validate(name, fn);
+    } else if (name === 'onRoute') {
+      this._hooks.validate(name, fn);
+      this._globalHooks.onRoute.push(fn);
+    } else if (name === 'onRegister') {
+      this._hooks.validate(name, fn);
+      this._globalHooks.onRegister.push(fn);
+    } else {
+      this._hooks.add(name, fn.bind(this));
     }
     return this;
   }
@@ -2016,7 +2086,12 @@ for (let i = 0, len = httpMethods.length; i < len; i++) {
     const { _app, _route, _hooks } = this;
 
     if (fns.length > 0) {
-      const preparedRouteFunction = _route._prepareMethod(method, path, _hooks, ...fns);
+      const preparedRouteFunction = _route._prepareMethod(
+        method,
+        path,
+        _hooks,
+        ...fns
+      );
 
       _app[method](path, preparedRouteFunction);
 

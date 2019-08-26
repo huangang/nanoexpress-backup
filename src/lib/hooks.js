@@ -25,6 +25,7 @@ function Hooks() {
   this.onResponse = [];
   this.onSend = [];
   this.onError = [];
+  return this;
 }
 
 Hooks.prototype.validate = function(hook, fn) {
