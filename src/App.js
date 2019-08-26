@@ -4,7 +4,6 @@ import wsHandler from './handler/ws';
 import { httpMethods } from './helpers';
 import { decorate } from './lib/decorate';
 import { buildHooks, Hooks } from './lib/hooks';
-let _prefix = '';
 export default class App {
   get config() {
     return this._config;
@@ -37,10 +36,6 @@ export default class App {
     this._route = route;
     this._hooks = new Hooks();
     this._hooks = buildHooks(this._hooks);
-    this._globalHooks = {
-      onRoute: [],
-      onRegister: []
-    };
     this.time = Date.now();
 
     this._instance = null;
@@ -89,29 +84,8 @@ export default class App {
 
     return this;
   }
-  loadRegister() {
-    return new Promise((resolve) => {
-      const { _globalHooks } = this;
-      const onRegisters = _globalHooks.onRegister;
-      const _loadRegister = (index = 0) => {
-        const register = onRegisters[index];
-        if (register) {
-          const options = register.options;
-          options.prefix ? (_prefix = options.prefix) : (_prefix = '');
-          register(this, options, () => {
-            _loadRegister(index + 1);
-          });
-        } else {
-          resolve();
-        }
-      };
-      _loadRegister(0);
-    });
-  }
-  async listen(port, host) {
-    await this.loadRegister();
+  listen(port, host) {
     const { _config: config, _app: app, _routeCalled, _optionsCalled } = this;
-
     if (!_routeCalled) {
       console.error(
         'nanoexpress [Server]: None of middleware will be called until you define route'
@@ -183,26 +157,15 @@ export default class App {
       return false;
     }
   }
-  register(fn, options = {}) {
-    fn.options = options;
-    this.addHook('onRegister', fn);
-  }
   addHook(name, fn) {
-    if (name === 'onClose') {
-      this._hooks.validate(name, fn);
-    } else if (name === 'onRoute') {
-      this._hooks.validate(name, fn);
-      this._globalHooks.onRoute.push(fn);
-    } else if (name === 'onRegister') {
-      this._hooks.validate(name, fn);
-      this._globalHooks.onRegister.push(fn);
-    } else {
-      this._hooks.add(name, fn.bind(this));
-    }
+    this._hooks.add(name, fn.bind(this));
     return this;
   }
   decorate(name, fn) {
     decorate(this, name, fn);
+    return this;
+  }
+  addContentTypeParser() {
     return this;
   }
 }
@@ -210,7 +173,6 @@ export default class App {
 for (let i = 0, len = httpMethods.length; i < len; i++) {
   const method = httpMethods[i];
   App.prototype[method] = function(path, ...fns) {
-    _prefix && (path = _prefix + path);
     const { _app, _route, _hooks } = this;
 
     if (fns.length > 0) {

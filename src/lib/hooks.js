@@ -7,12 +7,7 @@ const supportedHooks = [
   'preSerialization',
   'preHandler',
   'onResponse',
-  'onSend',
-  'onError',
-  // executed at start/close time
-  'onRoute',
-  'onRegister',
-  'onClose'
+  'onSend'
 ];
 const { FST_ERR_HOOK_INVALID_TYPE, FST_ERR_HOOK_INVALID_HANDLER } = codes;
 
@@ -24,7 +19,6 @@ function Hooks() {
   this.preHandler = [];
   this.onResponse = [];
   this.onSend = [];
-  this.onError = [];
   return this;
 }
 
@@ -50,7 +44,6 @@ function buildHooks(h) {
   hooks.preHandler = h.preHandler.slice();
   hooks.onSend = h.onSend.slice();
   hooks.onResponse = h.onResponse.slice();
-  hooks.onError = h.onError.slice();
   return hooks;
 }
 

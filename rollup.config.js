@@ -1,3 +1,4 @@
+import commonjs from 'rollup-plugin-commonjs';
 import resolve from 'rollup-plugin-node-resolve';
 
 import pkg from './package.json';
@@ -10,7 +11,8 @@ const plugins = [
     mainFields: ['module', 'main'],
     extensions: ['.mjs', '.js', '.json'],
     exclude: 'node_modules/**'
-  })
+  }),
+  commonjs()
 ];
 const external = dependencies.concat([
   'fs',
@@ -21,13 +23,34 @@ const external = dependencies.concat([
   'stream',
   'util'
 ]);
-export default {
-  input: './src/nanoexpress.js',
-  output: {
-    format: 'cjs',
-    file: './build/nanoexpress.js',
-    esModule: false
+
+export default [
+  {
+    input: './src/static.js',
+    output: {
+      format: 'cjs',
+      file: './build/static.js'
+    },
+    plugins,
+    external
   },
-  external,
-  plugins
-};
+  {
+    input: './src/Route.js',
+    output: {
+      format: 'cjs',
+      file: './build/Route.js'
+    },
+    plugins,
+    external
+  },
+  {
+    input: './src/nanoexpress.js',
+    output: {
+      format: 'cjs',
+      file: './build/nanoexpress.js',
+      esModule: false
+    },
+    external,
+    plugins
+  }
+];
