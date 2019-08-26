@@ -786,8 +786,9 @@ function modifyEnd() {
 
 function send(result) {
   const { __hooks, __request } = this;
-  // eslint-disable-next-line max-len
-  const preSerializations = __hooks.preSerialization.concat(__hooks[__request.url] && __hooks[__request.url].preSerialization || []);
+  const preSerializations = __hooks.preSerialization.concat(
+    (__hooks[__request.url] && __hooks[__request.url].preSerialization) || []
+  );
   onSendHookRunner(
     preSerializations,
     __request,
@@ -1442,7 +1443,7 @@ class Route {
   _prepareMethod(method, path, _hooks, ...middlewares) {
     const { _config, _baseUrl, _middlewares, _module, _rootLevel, _ajv } = this;
     const getHooks = (name) => {
-      return _hooks[name].concat(_hooks[path] && _hooks[path][name] || []);
+      return _hooks[name].concat((_hooks[path] && _hooks[path][name]) || []);
     };
     const fetchMethod = method === 'any';
     const fetchUrl =
@@ -1477,13 +1478,21 @@ class Route {
     );
 
     if (typeof schema === 'object') {
-      schema.handler && typeof schema.handler === 'function' && middlewares.push(schema.handler);
+      schema.handler &&
+        typeof schema.handler === 'function' &&
+        middlewares.push(schema.handler);
       // add path hook
-      const addHooks = [ 'onRequest', 'preParsing', 'preValidation', 'preHandler', 'preSerialization'];
+      const addHooks = [
+        'onRequest',
+        'preParsing',
+        'preValidation',
+        'preHandler',
+        'preSerialization'
+      ];
       const addPathHooks = () => {
         for (const name of addHooks) {
           if (schema[name]) {
-            if (schema[name].constructor === Array){
+            if (schema[name].constructor === Array) {
               _hooks[path][name] = schema[name];
             } else {
               _hooks[path][name] = [schema[name]];
@@ -1713,7 +1722,13 @@ class Route {
           }
 
           // run _hooks preParsing
-          hookRunner(getHooks('preValidation'), hookIterator, req, res, () => {});
+          hookRunner(
+            getHooks('preValidation'),
+            hookIterator,
+            req,
+            res,
+            () => {}
+          );
           if (
             isAborted ||
             (!isRaw &&
