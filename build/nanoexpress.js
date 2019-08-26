@@ -2017,7 +2017,27 @@ class App {
 
     return this;
   }
-  listen(port, host) {
+  loadRegister() {
+    return new Promise((resolve) => {
+      const { _globalHooks } = this;
+      const onRegisters = _globalHooks.onRegister;
+      const _loadRegister = (index = 0) => {
+        const register = onRegisters[index];
+        if (register) {
+          const options = register.options;
+          options.prefix ? (_prefix = options.prefix) : (_prefix = '');
+          register(this, options, () => {
+            _loadRegister(index + 1);
+          });
+        } else {
+          resolve();
+        }
+      };
+      _loadRegister(0);
+    });
+  }
+  async listen(port, host) {
+    await this.loadRegister();
     const { _config: config, _app: app, _routeCalled, _optionsCalled } = this;
 
     if (!_routeCalled) {
@@ -2092,8 +2112,8 @@ class App {
     }
   }
   register(fn, options = {}) {
-    options.prefix ? (_prefix = options.prefix) : (_prefix = '');
-    fn(this, options, () => {});
+    fn.options = options;
+    this.addHook('onRegister', fn);
   }
   addHook(name, fn) {
     if (name === 'onClose') {
