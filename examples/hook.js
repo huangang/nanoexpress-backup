@@ -15,7 +15,7 @@ nanoexpress()
   })
   .addHook('preParsing',  (req, res, next) => {
     console.log('preParsing');
-    res.send('Hello preValidation');
+    // res.send('Hello preParsing');
     next();
   })
   .addHook('preValidation',  (req, res, next) => {

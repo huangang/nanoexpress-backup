@@ -1613,23 +1613,24 @@ class Route {
         }
         res.writeHead.notModified = true;
       }
-      res.__hooks = _hooks;
 
       // run preSend
       const originSend = res.send;
       res.send = function(result) {
         res.send = originSend;
-        preSendHookRunner(getHooks('preSend'), req, res, result, (err, req, res, payload) => {
-          if (err != null) {
-            isAborted = true;
-            res.status(500).send({ error: err.message });
-          } else {
-            finished = true;
-            res.send(payload);
+        preSendHookRunner(
+          getHooks('preSend'), req, res, result, (err, req, res, payload) => {
+            if (err != null) {
+              isAborted = true;
+              res.status(500).send({ error: err.message });
+            } else {
+              finished = true;
+              res.send(payload);
+            }
+            onResponseHookRunner(getHooks('onResponse'), req, res, () => {});
+            return;
           }
-          onResponseHookRunner(getHooks('onResponse'), req, res, () => {});
-          return;
-        });
+        );
       };
 
       // Default HTTP Raw Status Code Integer
@@ -1752,6 +1753,11 @@ class Route {
           }
           return routeFunction(req, res);
         } else {
+          // run _hooks preParsing
+          hookRunner(getHooks('preValidation'), req, res, hookCallback);
+          if (finished || isAborted) {
+            return;
+          }
           if (
             isAborted ||
             (!isRaw &&

@@ -281,7 +281,6 @@ export default class Route {
         }
         res.writeHead.notModified = true;
       }
-      res.__hooks = _hooks;
 
       // run preSend
       const originSend = res.send;
@@ -426,6 +425,11 @@ export default class Route {
           }
           return routeFunction(req, res);
         } else {
+          // run _hooks preParsing
+          hookRunner(getHooks('preValidation'), req, res, hookCallback);
+          if (finished || isAborted) {
+            return;
+          }
           if (
             isAborted ||
             (!isRaw &&
