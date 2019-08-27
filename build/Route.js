@@ -970,67 +970,6 @@ function hookRunner(functions, req, res, cb) {
   next();
 }
 
-function preSendHookRunner(functions, req, res, payload, cb) {
-  var i = 0;
-
-  function next(err, newPayload) {
-    if (err) {
-      cb(err, req, res, payload);
-      return;
-    }
-
-    if (newPayload !== undefined) {
-      payload = newPayload;
-    }
-
-    if (i === functions.length) {
-      cb(null, req, res, payload);
-      return;
-    }
-
-    const result = functions[i++](req, res, payload, next);
-    if (result && typeof result.then === 'function') {
-      result.then(handleResolve, handleReject);
-    }
-  }
-
-  function handleResolve(newPayload) {
-    next(null, newPayload);
-  }
-
-  function handleReject(err) {
-    cb(err, req, res, payload);
-  }
-
-  next();
-}
-
-function onResponseHookRunner(functions, req, res, cb) {
-  var i = 0;
-
-  function next(err) {
-    if (err || i === functions.length) {
-      cb(err, req, res);
-      return;
-    }
-
-    const result = functions[i++](req, res, next);
-    if (result && typeof result.then === 'function') {
-      result.then(handleResolve, handleReject);
-    }
-  }
-
-  function handleResolve() {
-    next();
-  }
-
-  function handleReject(err) {
-    cb(err, req, res);
-  }
-
-  next();
-}
-
 var isHttpCode = (code) => {
   code = +code;
   if (typeof code === 'number' && code > 100 && code < 600) {
@@ -1568,27 +1507,28 @@ class Route {
       }
 
       // run preSend
-      const originSend = res.send;
-      res.send = function(result) {
-        res.send = originSend;
-        preSendHookRunner(
-          getHooks('preSend'),
-          req,
-          res,
-          result,
-          (err, req, res, payload) => {
-            if (err != null) {
-              isAborted = true;
-              res.status(500).send({ error: err.message });
-            } else {
-              finished = true;
-              res.send(payload);
-            }
-            onResponseHookRunner(getHooks('onResponse'), req, res, () => {});
-            return;
-          }
-        );
-      };
+      // const originSend = res.send;
+      // res.send = function(result) {
+      //   preSendHookRunner(
+      //     getHooks('preSend'),
+      //     req,
+      //     res,
+      //     result,
+      //     (err, req, res, payload) => {
+      //       onResponseHookRunner(getHooks('onResponse'), req, res, () => {});
+      //       if (err != null) {
+      //         isAborted = true;
+      //         res.status(500);
+      //         originSend({ error: err.message });
+      //       } else {
+      //         finished = true;
+      //         originSend(payload);
+      //       }
+      //       return;
+      //     }
+      //   );
+      //   return this;
+      // };
 
       // Default HTTP Raw Status Code Integer
       res.rawStatusCode = 200;

@@ -20,7 +20,7 @@ nanoexpress()
   })
   .addHook('preValidation',  (req, res, next) => {
     console.log('preValidation');
-    res.send('Hello preValidation');
+    res.end('Hello preValidation');
     next();
   })
   .addHook('preHandler',  (req, res, next) => {

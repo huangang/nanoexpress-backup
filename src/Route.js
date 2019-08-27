@@ -1,9 +1,9 @@
 import { headers, cookies, queries, params, body } from './normalizers';
 import { HttpResponse } from './proto';
 import {
-  hookRunner,
-  preSendHookRunner,
-  onResponseHookRunner
+  hookRunner
+  // preSendHookRunner,
+  // onResponseHookRunner
 } from './lib/hooks';
 
 import {
@@ -283,27 +283,28 @@ export default class Route {
       }
 
       // run preSend
-      const originSend = res.send;
-      res.send = function(result) {
-        res.send = originSend;
-        preSendHookRunner(
-          getHooks('preSend'),
-          req,
-          res,
-          result,
-          (err, req, res, payload) => {
-            if (err != null) {
-              isAborted = true;
-              res.status(500).send({ error: err.message });
-            } else {
-              finished = true;
-              res.send(payload);
-            }
-            onResponseHookRunner(getHooks('onResponse'), req, res, () => {});
-            return;
-          }
-        );
-      };
+      // const originSend = res.send;
+      // res.send = function(result) {
+      //   preSendHookRunner(
+      //     getHooks('preSend'),
+      //     req,
+      //     res,
+      //     result,
+      //     (err, req, res, payload) => {
+      //       onResponseHookRunner(getHooks('onResponse'), req, res, () => {});
+      //       if (err != null) {
+      //         isAborted = true;
+      //         res.status(500);
+      //         originSend({ error: err.message });
+      //       } else {
+      //         finished = true;
+      //         originSend(payload);
+      //       }
+      //       return;
+      //     }
+      //   );
+      //   return this;
+      // };
 
       // Default HTTP Raw Status Code Integer
       res.rawStatusCode = 200;
