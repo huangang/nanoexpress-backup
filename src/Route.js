@@ -281,30 +281,7 @@ export default class Route {
         }
         res.writeHead.notModified = true;
       }
-
-      // run preSend
-      // const originSend = res.send;
-      // res.send = function(result) {
-      //   preSendHookRunner(
-      //     getHooks('preSend'),
-      //     req,
-      //     res,
-      //     result,
-      //     (err, req, res, payload) => {
-      //       onResponseHookRunner(getHooks('onResponse'), req, res, () => {});
-      //       if (err != null) {
-      //         isAborted = true;
-      //         res.status(500);
-      //         originSend({ error: err.message });
-      //       } else {
-      //         finished = true;
-      //         originSend(payload);
-      //       }
-      //       return;
-      //     }
-      //   );
-      //   return this;
-      // };
+      res.__hooks = _hooks;
 
       // Default HTTP Raw Status Code Integer
       res.rawStatusCode = 200;

@@ -15,12 +15,12 @@ nanoexpress()
   })
   .addHook('preParsing',  (req, res, next) => {
     console.log('preParsing');
-    // res.send('Hello preParsing');
+    res.send('Hello preParsing');
     next();
   })
   .addHook('preValidation',  (req, res, next) => {
     console.log('preValidation');
-    res.end('Hello preValidation');
+    // res.end('Hello preValidation');
     next();
   })
   .addHook('preHandler',  (req, res, next) => {
@@ -31,7 +31,7 @@ nanoexpress()
   .addHook('preSend',  (req, res, payload, next) => {
     console.log('preSend', payload);
     payload += ' preSend';
-    next();
+    next(null, payload);
   })
   .addHook('onResponse',  (req, res, next) => {
     console.log('onResponse1');
