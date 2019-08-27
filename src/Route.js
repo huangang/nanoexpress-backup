@@ -1,6 +1,6 @@
 import { headers, cookies, queries, params, body } from './normalizers';
 import { HttpResponse } from './proto';
-import { hookRunner, hookIterator, hookCallback } from './lib/hooks';
+import { hookRunner } from './lib/hooks';
 
 import {
   prepareSwaggerDocs,
@@ -116,8 +116,7 @@ export default class Route {
         'onRequest',
         'preParsing',
         'preValidation',
-        'preHandler',
-        'preSerialization'
+        'preHandler'
       ];
       const addPathHooks = () => {
         for (const name of addHooks) {
@@ -160,20 +159,24 @@ export default class Route {
     // eslint-disable-next-line prefer-const
     responseSchema = _schema && validation && validation.responseSchema;
 
+    const hookCallback = (err, req, res) => {
+      if (res.sent === true) {
+        finished = true;
+        return;
+      }
+      if (err != null) {
+        isAborted = true;
+        res.status(500).send(err);
+        return;
+      }
+    };
+
     if (
       routeFunction.then ||
       routeFunction.constructor.name === 'AsyncFunction'
     ) {
       const _oldRouteFunction = routeFunction;
       routeFunction = (req, res) => {
-        // run _hooks preHandler
-        hookRunner(
-          getHooks('preHandlers'),
-          hookIterator,
-          req,
-          res,
-          hookCallback
-        );
         return _oldRouteFunction(req, res)
           .then((data) => {
             if (!isAborted && data && data !== res) {
@@ -319,8 +322,10 @@ export default class Route {
         }
       }
       // run _hooks onRequest
-      hookRunner(getHooks('onRequest'), hookIterator, req, res, hookCallback);
-
+      hookRunner(getHooks('onRequest'), req, res, hookCallback);
+      if (finished || isAborted) {
+        return;
+      }
       if (middlewares && middlewares.length > 0) {
         for (let i = 0, len = middlewares.length, middleware; i < len; i++) {
           middleware = middlewares[i];
@@ -349,13 +354,10 @@ export default class Route {
         }
 
         // run _hooks preParsing
-        hookRunner(
-          getHooks('preParsing'),
-          hookIterator,
-          req,
-          res,
-          hookCallback
-        );
+        hookRunner(getHooks('preParsing'), req, res, hookCallback);
+        if (finished || isAborted) {
+          return;
+        }
 
         if (
           !isRaw &&
@@ -374,13 +376,10 @@ export default class Route {
           }
 
           // run _hooks preParsing
-          hookRunner(
-            getHooks('preValidation'),
-            hookIterator,
-            req,
-            res,
-            hookCallback
-          );
+          hookRunner(getHooks('preValidation'), req, res, hookCallback);
+          if (finished || isAborted) {
+            return;
+          }
           if (
             isAborted ||
             (!isRaw &&
@@ -391,6 +390,11 @@ export default class Route {
             return;
           }
 
+          // run _hooks preHandler
+          hookRunner(getHooks('preHandler'), req, res, hookCallback);
+          if (finished || isAborted) {
+            return;
+          }
           return routeFunction(req, res);
         } else {
           if (
@@ -403,6 +407,10 @@ export default class Route {
             return;
           }
 
+          hookRunner(getHooks('preHandler'), req, res, hookCallback);
+          if (finished || isAborted) {
+            return;
+          }
           return routeFunction(req, res);
         }
       }

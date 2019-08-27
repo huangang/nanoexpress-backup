@@ -1,17 +1,4 @@
-import { onSendHookRunner } from '../../../lib/hooks';
-
 export default function send(result) {
-  const { __hooks, __request } = this;
-  const preSerializations = __hooks.preSerialization.concat(
-    (__hooks[__request.url] && __hooks[__request.url].preSerialization) || []
-  );
-  onSendHookRunner(
-    preSerializations,
-    __request,
-    __request.__response,
-    result,
-    () => {}
-  );
   if (!result) {
     result = '';
   } else if (typeof result === 'object') {
@@ -31,13 +18,6 @@ export default function send(result) {
       result = JSON.stringify(result);
     }
   }
-  onSendHookRunner(
-    __hooks.onSend,
-    __request,
-    __request.__response,
-    result,
-    () => {}
-  );
 
   this.sent = true;
   return this.end(result);

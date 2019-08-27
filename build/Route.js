@@ -80,18 +80,18 @@ var queries = (req) => {
   return queries;
 };
 
-var body = async (req, res) => {
-  const stream$1 = new stream.Readable();
-  stream$1._read = () => true;
-  req.pipe = stream$1.pipe.bind(stream$1);
-  req.stream = stream$1;
+var body = (req, res) =>
+  new Promise((resolve) => {
+    if (!res || !res.onData) {
+      return resolve();
+    }
 
-  if (!res || !res.onData) {
-    return undefined;
-  }
+    const stream$1 = new stream.Readable();
+    stream$1._read = () => true;
+    req.pipe = stream$1.pipe.bind(stream$1);
+    req.stream = stream$1;
 
-  let isAborted = false;
-  let body = await new Promise((resolve) => {
+    let isAborted = false;
     /* Register error cb */
     res.onAborted(() => {
       if (res.stream) {
@@ -128,26 +128,6 @@ var body = async (req, res) => {
       }
     });
   });
-
-  if (!body) {
-    return undefined;
-  }
-
-  const { headers } = req;
-
-  if (headers) {
-    const contentType = headers['content-type'];
-    if (contentType) {
-      if (contentType.indexOf('/json') !== -1) {
-        body = JSON.parse(body);
-      } else if (contentType.indexOf('/x-www-form-urlencoded') !== -1) {
-        body = querystring.parse(req.body);
-      }
-    }
-  }
-
-  return body;
-};
 
 const PARAMS_REGEX = /:([A-Za-z0-9_-]+)/g;
 
@@ -613,7 +593,7 @@ function createError(code, message, statusCode = 500, Base = Error) {
   return codes[code];
 }
 
-function hookRunner(functions, runner, req, res, cb) {
+function hookRunner(functions, req, res, cb) {
   var i = 0;
 
   function next(err) {
@@ -622,7 +602,11 @@ function hookRunner(functions, runner, req, res, cb) {
       return;
     }
 
-    const result = runner(functions[i++], req, res, next);
+    if(res.sent === true) {
+      cb(err, req, res);
+      return;
+    }
+    const result = functions[i++](req, res, next);
     if (result && typeof result.then === 'function') {
       result.then(handleResolve, handleReject);
     }
@@ -639,52 +623,30 @@ function hookRunner(functions, runner, req, res, cb) {
   next();
 }
 
-function onSendHookRunner(functions, req, res, payload, cb) {
+function onResponseHookRunner(functions, req, res, cb) {
   var i = 0;
 
-  function next(err, newPayload) {
-    if (err) {
-      cb(err, req, res, payload);
+  function next(err) {
+    if (err || i === functions.length) {
+      cb(err, req, res);
       return;
     }
 
-    if (newPayload !== undefined) {
-      payload = newPayload;
-    }
-
-    if (i === functions.length) {
-      cb(null, req, res, payload);
-      return;
-    }
-
-    const result = functions[i++](req, res, payload, next);
+    const result = functions[i++](req, res, next);
     if (result && typeof result.then === 'function') {
       result.then(handleResolve, handleReject);
     }
   }
 
-  function handleResolve(newPayload) {
-    next(null, newPayload);
+  function handleResolve() {
+    next();
   }
 
   function handleReject(err) {
-    cb(err, req, res, payload);
+    cb(err, req, res);
   }
 
   next();
-}
-
-function hookIterator(fn, req, res, next) {
-  if (res.sent === true) return undefined;
-  return fn(req, res, next);
-}
-
-function hookCallback(err, req, res) {
-  if (res.sent === true) return;
-  if (err != null) {
-    res.send(err);
-    return;
-  }
 }
 
 function modifyEnd() {
@@ -716,15 +678,6 @@ function modifyEnd() {
       } else if (statusCode && statusCode !== rawStatusCode) {
         this.writeStatus(statusCode);
       }
-      const { __hooks, __request } = this;
-
-      hookRunner(
-        __hooks.onResponse,
-        hookIterator,
-        __request.request,
-        __request.__response,
-        () => {}
-      );
       return encoding
         ? _oldEnd.call(this, chunk, encoding)
         : _oldEnd.call(this, chunk);
@@ -732,22 +685,22 @@ function modifyEnd() {
 
     this._modifiedEnd = true;
     this.sent = true;
+    const { __hooks, __request } = this;
+    onResponseHookRunner(
+      __hooks.onResponse,
+      __request.request,
+      __request.__response,
+      (err) => {
+        if (err != null) {
+          return;
+        }
+      }
+    );
   }
   return this;
 }
 
 function send(result) {
-  const { __hooks, __request } = this;
-  const preSerializations = __hooks.preSerialization.concat(
-    (__hooks[__request.url] && __hooks[__request.url].preSerialization) || []
-  );
-  onSendHookRunner(
-    preSerializations,
-    __request,
-    __request.__response,
-    result,
-    () => {}
-  );
   if (!result) {
     result = '';
   } else if (typeof result === 'object') {
@@ -767,13 +720,6 @@ function send(result) {
       result = JSON.stringify(result);
     }
   }
-  onSendHookRunner(
-    __hooks.onSend,
-    __request,
-    __request.__response,
-    result,
-    () => {}
-  );
 
   this.sent = true;
   return this.end(result);
@@ -1439,8 +1385,7 @@ class Route {
         'onRequest',
         'preParsing',
         'preValidation',
-        'preHandler',
-        'preSerialization'
+        'preHandler'
       ];
       const addPathHooks = () => {
         for (const name of addHooks) {
@@ -1483,14 +1428,24 @@ class Route {
     // eslint-disable-next-line prefer-const
     responseSchema = _schema && validation && validation.responseSchema;
 
+    const hookCallback = (err, req, res) => {
+      if (res.sent === true) {
+        finished = true;
+        return;
+      }
+      if (err != null) {
+        isAborted = true;
+        res.status(500).send(err);
+        return;
+      }
+    };
+
     if (
       routeFunction.then ||
       routeFunction.constructor.name === 'AsyncFunction'
     ) {
       const _oldRouteFunction = routeFunction;
       routeFunction = (req, res) => {
-        // run _hooks preHandler
-        hookRunner(getHooks('preHandlers'), hookIterator, req, res, hookCallback);
         return _oldRouteFunction(req, res)
           .then((data) => {
             if (!isAborted && data && data !== res) {
@@ -1632,8 +1587,10 @@ class Route {
         }
       }
       // run _hooks onRequest
-      hookRunner(getHooks('onRequest'), hookIterator, req, res, hookCallback);
-
+      hookRunner(getHooks('onRequest'), req, res, hookCallback);
+      if (finished || isAborted) {
+        return;
+      }
       if (middlewares && middlewares.length > 0) {
         for (let i = 0, len = middlewares.length, middleware; i < len; i++) {
           middleware = middlewares[i];
@@ -1662,7 +1619,10 @@ class Route {
         }
 
         // run _hooks preParsing
-        hookRunner(getHooks('preParsing'), hookIterator, req, res, hookCallback);
+        hookRunner(getHooks('preParsing'), req, res, hookCallback);
+        if (finished || isAborted) {
+          return;
+        }
 
         if (
           !isRaw &&
@@ -1681,13 +1641,10 @@ class Route {
           }
 
           // run _hooks preParsing
-          hookRunner(
-            getHooks('preValidation'),
-            hookIterator,
-            req,
-            res,
-            hookCallback
-          );
+          hookRunner(getHooks('preValidation'), req, res, hookCallback);
+          if (finished || isAborted) {
+            return;
+          }
           if (
             isAborted ||
             (!isRaw &&
@@ -1698,6 +1655,11 @@ class Route {
             return;
           }
 
+          // run _hooks preHandler
+          hookRunner(getHooks('preHandler'), req, res, hookCallback);
+          if (finished || isAborted) {
+            return;
+          }
           return routeFunction(req, res);
         } else {
           if (
@@ -1710,6 +1672,10 @@ class Route {
             return;
           }
 
+          hookRunner(getHooks('preHandler'), req, res, hookCallback);
+          if (finished || isAborted) {
+            return;
+          }
           return routeFunction(req, res);
         }
       }

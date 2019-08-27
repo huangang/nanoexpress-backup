@@ -4,10 +4,9 @@ const supportedHooks = [
   'onRequest',
   'preParsing',
   'preValidation',
-  'preSerialization',
   'preHandler',
   'onResponse',
-  'onSend'
+  'preSend'
 ];
 const { FST_ERR_HOOK_INVALID_TYPE, FST_ERR_HOOK_INVALID_HANDLER } = codes;
 
@@ -15,10 +14,9 @@ function Hooks() {
   this.onRequest = [];
   this.preParsing = [];
   this.preValidation = [];
-  this.preSerialization = [];
   this.preHandler = [];
   this.onResponse = [];
-  this.onSend = [];
+  this.preSend = [];
   return this;
 }
 
@@ -40,14 +38,13 @@ function buildHooks(h) {
   hooks.onRequest = h.onRequest.slice();
   hooks.preParsing = h.preParsing.slice();
   hooks.preValidation = h.preValidation.slice();
-  hooks.preSerialization = h.preSerialization.slice();
   hooks.preHandler = h.preHandler.slice();
-  hooks.onSend = h.onSend.slice();
+  hooks.preSend = h.preSend.slice();
   hooks.onResponse = h.onResponse.slice();
   return hooks;
 }
 
-function hookRunner(functions, runner, req, res, cb) {
+function hookRunner(functions, req, res, cb) {
   var i = 0;
 
   function next(err) {
@@ -56,7 +53,11 @@ function hookRunner(functions, runner, req, res, cb) {
       return;
     }
 
-    const result = runner(functions[i++], req, res, next);
+    if (res.sent === true) {
+      cb(err, req, res);
+      return;
+    }
+    const result = functions[i++](req, res, next);
     if (result && typeof result.then === 'function') {
       result.then(handleResolve, handleReject);
     }
@@ -73,7 +74,7 @@ function hookRunner(functions, runner, req, res, cb) {
   next();
 }
 
-function onSendHookRunner(functions, req, res, payload, cb) {
+function preSendHookRunner(functions, req, res, payload, cb) {
   var i = 0;
 
   function next(err, newPayload) {
@@ -108,24 +109,36 @@ function onSendHookRunner(functions, req, res, payload, cb) {
   next();
 }
 
-function hookIterator(fn, req, res, next) {
-  if (res.sent === true) return undefined;
-  return fn(req, res, next);
-}
+function onResponseHookRunner(functions, req, res, cb) {
+  var i = 0;
 
-function hookCallback(err, req, res) {
-  if (res.sent === true) return;
-  if (err != null) {
-    res.send(err);
-    return;
+  function next(err) {
+    if (err || i === functions.length) {
+      cb(err, req, res);
+      return;
+    }
+
+    const result = functions[i++](req, res, next);
+    if (result && typeof result.then === 'function') {
+      result.then(handleResolve, handleReject);
+    }
   }
+
+  function handleResolve() {
+    next();
+  }
+
+  function handleReject(err) {
+    cb(err, req, res);
+  }
+
+  next();
 }
 
 export {
   Hooks,
   buildHooks,
   hookRunner,
-  onSendHookRunner,
-  hookIterator,
-  hookCallback
+  preSendHookRunner,
+  onResponseHookRunner
 };

@@ -1,4 +1,4 @@
-import { hookRunner, hookIterator } from '../../../lib/hooks';
+import { onResponseHookRunner } from '../../../lib/hooks';
 
 export default function modifyEnd() {
   if (!this._modifiedEnd) {
@@ -29,15 +29,6 @@ export default function modifyEnd() {
       } else if (statusCode && statusCode !== rawStatusCode) {
         this.writeStatus(statusCode);
       }
-      const { __hooks, __request } = this;
-
-      hookRunner(
-        __hooks.onResponse,
-        hookIterator,
-        __request.request,
-        __request.__response,
-        () => {}
-      );
       return encoding
         ? _oldEnd.call(this, chunk, encoding)
         : _oldEnd.call(this, chunk);
@@ -45,6 +36,17 @@ export default function modifyEnd() {
 
     this._modifiedEnd = true;
     this.sent = true;
+    const { __hooks, __request } = this;
+    onResponseHookRunner(
+      __hooks.onResponse,
+      __request.request,
+      __request.__response,
+      (err) => {
+        if (err != null) {
+          return;
+        }
+      }
+    );
   }
   return this;
 }
