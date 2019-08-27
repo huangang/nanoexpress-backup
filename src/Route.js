@@ -1,6 +1,10 @@
 import { headers, cookies, queries, params, body } from './normalizers';
 import { HttpResponse } from './proto';
-import { hookRunner } from './lib/hooks';
+import {
+  hookRunner,
+  preSendHookRunner,
+  onResponseHookRunner
+} from './lib/hooks';
 
 import {
   prepareSwaggerDocs,
@@ -116,7 +120,9 @@ export default class Route {
         'onRequest',
         'preParsing',
         'preValidation',
-        'preHandler'
+        'preHandler',
+        'preSend',
+        'onResponse'
       ];
       const addPathHooks = () => {
         for (const name of addHooks) {
@@ -166,7 +172,7 @@ export default class Route {
       }
       if (err != null) {
         isAborted = true;
-        res.status(500).send(err);
+        res.status(500).send({ error: err.message });
         return;
       }
     };
@@ -276,6 +282,29 @@ export default class Route {
         res.writeHead.notModified = true;
       }
       res.__hooks = _hooks;
+
+      // run preSend
+      const originSend = res.send;
+      res.send = function(result) {
+        res.send = originSend;
+        preSendHookRunner(
+          getHooks('preSend'),
+          req,
+          res,
+          result,
+          (err, req, res, payload) => {
+            if (err != null) {
+              isAborted = true;
+              res.status(500).send({ error: err.message });
+            } else {
+              finished = true;
+              res.send(payload);
+            }
+            onResponseHookRunner(getHooks('onResponse'), req, res, () => {});
+            return;
+          }
+        );
+      };
 
       // Default HTTP Raw Status Code Integer
       res.rawStatusCode = 200;

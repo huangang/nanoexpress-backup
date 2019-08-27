@@ -532,170 +532,6 @@ async function sendFile(
     });
 }
 
-const codes = {};
-
-/**
- * decorate
- */
-createError(
-  'FST_ERR_DEC_ALREADY_PRESENT',
-  'The decorator \'%s\' has already been added!'
-);
-createError(
-  'FST_ERR_DEC_MISSING_DEPENDENCY',
-  'The decorator is missing dependency \'%s\'.'
-);
-
-/**
- * hooks
- */
-createError(
-  'FST_ERR_HOOK_INVALID_TYPE',
-  'The hook name must be a string',
-  500,
-  TypeError
-);
-createError(
-  'FST_ERR_HOOK_INVALID_HANDLER',
-  'The hook callback must be a function',
-  500,
-  TypeError
-);
-
-function createError(code, message, statusCode = 500, Base = Error) {
-  if (!code) throw new Error('Nanoexpress error code must not be empty');
-  if (!message) throw new Error('Nanoexpress error message must not be empty');
-
-  code = code.toUpperCase();
-
-  function NanoexpressError(a, b, c) {
-    Error.captureStackTrace(this, NanoexpressError);
-    this.name = `NanoexpressError [${code}]`;
-    this.code = code;
-
-    // more performant than spread (...) operator
-    if (a && b && c) {
-      this.message = util.format(message, a, b, c);
-    } else if (a && b) {
-      this.message = util.format(message, a, b);
-    } else if (a) {
-      this.message = util.format(message, a);
-    } else {
-      this.message = message;
-    }
-
-    this.message = `${this.code}: ${this.message}`;
-    this.statusCode = statusCode || undefined;
-  }
-  NanoexpressError.prototype[Symbol.toStringTag] = 'Error';
-
-  util.inherits(NanoexpressError, Base);
-
-  codes[code] = NanoexpressError;
-
-  return codes[code];
-}
-
-const supportedHooks = [
-  'onRequest',
-  'preParsing',
-  'preValidation',
-  'preHandler',
-  'onResponse',
-  'preSend'
-];
-const { FST_ERR_HOOK_INVALID_TYPE, FST_ERR_HOOK_INVALID_HANDLER } = codes;
-
-function Hooks() {
-  this.onRequest = [];
-  this.preParsing = [];
-  this.preValidation = [];
-  this.preHandler = [];
-  this.onResponse = [];
-  this.preSend = [];
-  return this;
-}
-
-Hooks.prototype.validate = function(hook, fn) {
-  if (typeof hook !== 'string') throw new FST_ERR_HOOK_INVALID_TYPE();
-  if (typeof fn !== 'function') throw new FST_ERR_HOOK_INVALID_HANDLER();
-  if (supportedHooks.indexOf(hook) === -1) {
-    throw new Error(`${hook} hook not supported!`);
-  }
-};
-
-Hooks.prototype.add = function(hook, fn) {
-  this.validate(hook, fn);
-  this[hook].push(fn);
-};
-
-function buildHooks(h) {
-  const hooks = new Hooks();
-  hooks.onRequest = h.onRequest.slice();
-  hooks.preParsing = h.preParsing.slice();
-  hooks.preValidation = h.preValidation.slice();
-  hooks.preHandler = h.preHandler.slice();
-  hooks.preSend = h.preSend.slice();
-  hooks.onResponse = h.onResponse.slice();
-  return hooks;
-}
-
-function hookRunner(functions, req, res, cb) {
-  var i = 0;
-
-  function next(err) {
-    if (err || i === functions.length) {
-      cb(err, req, res);
-      return;
-    }
-
-    if(res.sent === true) {
-      cb(err, req, res);
-      return;
-    }
-    const result = functions[i++](req, res, next);
-    if (result && typeof result.then === 'function') {
-      result.then(handleResolve, handleReject);
-    }
-  }
-
-  function handleResolve() {
-    next();
-  }
-
-  function handleReject(err) {
-    cb(err, req, res);
-  }
-
-  next();
-}
-
-function onResponseHookRunner(functions, req, res, cb) {
-  var i = 0;
-
-  function next(err) {
-    if (err || i === functions.length) {
-      cb(err, req, res);
-      return;
-    }
-
-    const result = functions[i++](req, res, next);
-    if (result && typeof result.then === 'function') {
-      result.then(handleResolve, handleReject);
-    }
-  }
-
-  function handleResolve() {
-    next();
-  }
-
-  function handleReject(err) {
-    cb(err, req, res);
-  }
-
-  next();
-}
-
 function modifyEnd() {
   if (!this._modifiedEnd) {
     const _oldEnd = this.end;
@@ -732,17 +568,6 @@ function modifyEnd() {
 
     this._modifiedEnd = true;
     this.sent = true;
-    const { __hooks, __request } = this;
-    onResponseHookRunner(
-      __hooks.onResponse,
-      __request.request,
-      __request.__response,
-      (err) => {
-        if (err != null) {
-          return;
-        }
-      }
-    );
   }
   return this;
 }
@@ -1053,6 +878,205 @@ HttpResponse.json = HttpResponse.send;
 HttpResponse.sendFile = sendFile;
 
 HttpResponse.code = HttpResponse.status;
+
+const codes = {};
+
+/**
+ * decorate
+ */
+createError(
+  'FST_ERR_DEC_ALREADY_PRESENT',
+  'The decorator \'%s\' has already been added!'
+);
+createError(
+  'FST_ERR_DEC_MISSING_DEPENDENCY',
+  'The decorator is missing dependency \'%s\'.'
+);
+
+/**
+ * hooks
+ */
+createError(
+  'FST_ERR_HOOK_INVALID_TYPE',
+  'The hook name must be a string',
+  500,
+  TypeError
+);
+createError(
+  'FST_ERR_HOOK_INVALID_HANDLER',
+  'The hook callback must be a function',
+  500,
+  TypeError
+);
+
+function createError(code, message, statusCode = 500, Base = Error) {
+  if (!code) throw new Error('Nanoexpress error code must not be empty');
+  if (!message) throw new Error('Nanoexpress error message must not be empty');
+
+  code = code.toUpperCase();
+
+  function NanoexpressError(a, b, c) {
+    Error.captureStackTrace(this, NanoexpressError);
+    this.name = `NanoexpressError [${code}]`;
+    this.code = code;
+
+    // more performant than spread (...) operator
+    if (a && b && c) {
+      this.message = util.format(message, a, b, c);
+    } else if (a && b) {
+      this.message = util.format(message, a, b);
+    } else if (a) {
+      this.message = util.format(message, a);
+    } else {
+      this.message = message;
+    }
+
+    this.message = `${this.code}: ${this.message}`;
+    this.statusCode = statusCode || undefined;
+  }
+  NanoexpressError.prototype[Symbol.toStringTag] = 'Error';
+
+  util.inherits(NanoexpressError, Base);
+
+  codes[code] = NanoexpressError;
+
+  return codes[code];
+}
+
+const supportedHooks = [
+  'onRequest',
+  'preParsing',
+  'preValidation',
+  'preHandler',
+  'onResponse',
+  'preSend'
+];
+const { FST_ERR_HOOK_INVALID_TYPE, FST_ERR_HOOK_INVALID_HANDLER } = codes;
+
+function Hooks() {
+  this.onRequest = [];
+  this.preParsing = [];
+  this.preValidation = [];
+  this.preHandler = [];
+  this.onResponse = [];
+  this.preSend = [];
+  return this;
+}
+
+Hooks.prototype.validate = function(hook, fn) {
+  if (typeof hook !== 'string') throw new FST_ERR_HOOK_INVALID_TYPE();
+  if (typeof fn !== 'function') throw new FST_ERR_HOOK_INVALID_HANDLER();
+  if (supportedHooks.indexOf(hook) === -1) {
+    throw new Error(`${hook} hook not supported!`);
+  }
+};
+
+Hooks.prototype.add = function(hook, fn) {
+  this.validate(hook, fn);
+  this[hook].push(fn);
+};
+
+function buildHooks(h) {
+  const hooks = new Hooks();
+  hooks.onRequest = h.onRequest.slice();
+  hooks.preParsing = h.preParsing.slice();
+  hooks.preValidation = h.preValidation.slice();
+  hooks.preHandler = h.preHandler.slice();
+  hooks.preSend = h.preSend.slice();
+  hooks.onResponse = h.onResponse.slice();
+  return hooks;
+}
+
+function hookRunner(functions, req, res, cb) {
+  var i = 0;
+
+  function next(err) {
+    if (err || i === functions.length) {
+      cb(err, req, res);
+      return;
+    }
+
+    if (res.sent === true) {
+      cb(err, req, res);
+      return;
+    }
+    const result = functions[i++](req, res, next);
+    if (result && typeof result.then === 'function') {
+      result.then(handleResolve, handleReject);
+    }
+  }
+
+  function handleResolve() {
+    next();
+  }
+
+  function handleReject(err) {
+    cb(err, req, res);
+  }
+
+  next();
+}
+
+function preSendHookRunner(functions, req, res, payload, cb) {
+  var i = 0;
+
+  function next(err, newPayload) {
+    if (err) {
+      cb(err, req, res, payload);
+      return;
+    }
+
+    if (newPayload !== undefined) {
+      payload = newPayload;
+    }
+
+    if (i === functions.length) {
+      cb(null, req, res, payload);
+      return;
+    }
+
+    const result = functions[i++](req, res, payload, next);
+    if (result && typeof result.then === 'function') {
+      result.then(handleResolve, handleReject);
+    }
+  }
+
+  function handleResolve(newPayload) {
+    next(null, newPayload);
+  }
+
+  function handleReject(err) {
+    cb(err, req, res, payload);
+  }
+
+  next();
+}
+
+function onResponseHookRunner(functions, req, res, cb) {
+  var i = 0;
+
+  function next(err) {
+    if (err || i === functions.length) {
+      cb(err, req, res);
+      return;
+    }
+
+    const result = functions[i++](req, res, next);
+    if (result && typeof result.then === 'function') {
+      result.then(handleResolve, handleReject);
+    }
+  }
+
+  function handleResolve() {
+    next();
+  }
+
+  function handleReject(err) {
+    cb(err, req, res);
+  }
+
+  next();
+}
 
 var isHttpCode = (code) => {
   code = +code;
@@ -1432,7 +1456,9 @@ class Route {
         'onRequest',
         'preParsing',
         'preValidation',
-        'preHandler'
+        'preHandler',
+        'preSend',
+        'onResponse'
       ];
       const addPathHooks = () => {
         for (const name of addHooks) {
@@ -1482,7 +1508,7 @@ class Route {
       }
       if (err != null) {
         isAborted = true;
-        res.status(500).send(err);
+        res.status(500).send({ error: err.message });
         return;
       }
     };
@@ -1588,6 +1614,23 @@ class Route {
         res.writeHead.notModified = true;
       }
       res.__hooks = _hooks;
+
+      // run preSend
+      const originSend = res.send;
+      res.send = function(result) {
+        res.send = originSend;
+        preSendHookRunner(getHooks('preSend'), req, res, result, (err, req, res, payload) => {
+          if (err != null) {
+            isAborted = true;
+            res.status(500).send({ error: err.message });
+          } else {
+            finished = true;
+            res.send(payload);
+          }
+          onResponseHookRunner(getHooks('onResponse'), req, res, () => {});
+          return;
+        });
+      };
 
       // Default HTTP Raw Status Code Integer
       res.rawStatusCode = 200;

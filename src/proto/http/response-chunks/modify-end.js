@@ -1,5 +1,3 @@
-import { onResponseHookRunner } from '../../../lib/hooks';
-
 export default function modifyEnd() {
   if (!this._modifiedEnd) {
     const _oldEnd = this.end;
@@ -36,17 +34,6 @@ export default function modifyEnd() {
 
     this._modifiedEnd = true;
     this.sent = true;
-    const { __hooks, __request } = this;
-    onResponseHookRunner(
-      __hooks.onResponse,
-      __request.request,
-      __request.__response,
-      (err) => {
-        if (err != null) {
-          return;
-        }
-      }
-    );
   }
   return this;
 }
