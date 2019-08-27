@@ -1572,7 +1572,11 @@ class Route {
       res.send = function(result) {
         res.send = originSend;
         preSendHookRunner(
-          getHooks('preSend'), req, res, result, (err, req, res, payload) => {
+          getHooks('preSend'),
+          req,
+          res,
+          result,
+          (err, req, res, payload) => {
             if (err != null) {
               isAborted = true;
               res.status(500).send({ error: err.message });
